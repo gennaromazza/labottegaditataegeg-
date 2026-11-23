@@ -7,7 +7,7 @@ import { ascoltaListino, type VoceListino } from '../data/listino'
 import { oggiISO } from '../data/util'
 import { formatEuro, totaleCent } from '../lib/calcoli'
 import { parseEuro } from '../lib/importi'
-import { CANALI, METODI, type Canale, type Cliente, type MetodoPagamento, type Pagamento } from '../lib/tipi'
+import { CANALI, ETICHETTE_METODO, METODI, type Canale, type Cliente, type MetodoPagamento, type Pagamento } from '../lib/tipi'
 
 export default function OrdineForm() {
   const navigate = useNavigate()
@@ -89,7 +89,7 @@ export default function OrdineForm() {
           <label htmlFor="metodo">Metodo dell&apos;acconto</label>
           <select id="metodo" value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPagamento | '')}>
             <option value="">Non indicato</option>
-            {METODI.map((m) => <option key={m}>{m}</option>)}
+            {METODI.map((m) => <option key={m} value={m}>{ETICHETTE_METODO[m]}</option>)}
           </select>
           <label htmlFor="consegna">Data di consegna</label>
           <input id="consegna" type="date" value={consegna} onChange={(e) => setConsegna(e.target.value)} />

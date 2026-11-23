@@ -5,6 +5,12 @@ export type MetodoPagamento = 'contanti' | 'bonifico' | 'paypal' | 'altro'
 export const CANALI: Canale[] = ['TikTok', 'WhatsApp', 'Instagram', 'Facebook', 'Altro']
 export const STATI: StatoOrdine[] = ['da fare', 'in lavorazione', 'pronto', 'consegnato', 'annullato']
 export const METODI: MetodoPagamento[] = ['contanti', 'bonifico', 'paypal', 'altro']
+export const ETICHETTE_METODO: Record<MetodoPagamento, string> = {
+  contanti: 'Contanti',
+  bonifico: 'Bonifico',
+  paypal: 'PayPal',
+  altro: 'Altro',
+}
 
 export type CategoriaSpesa = 'Materiali' | 'Spedizioni' | 'Imballaggi' | 'Attrezzatura' | 'Pubblicità' | 'Rimborsi' | 'Altro'
 export const CATEGORIE_SPESA: CategoriaSpesa[] = ['Materiali', 'Spedizioni', 'Imballaggi', 'Attrezzatura', 'Pubblicità', 'Rimborsi', 'Altro']

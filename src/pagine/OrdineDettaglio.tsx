@@ -9,7 +9,7 @@ import { parseEuro } from '../lib/importi'
 import { linkOrdine } from '../lib/link'
 import { generaPdfOrdine } from '../lib/pdf'
 import { linkWhatsApp } from '../lib/whatsapp'
-import { METODI, STATI, type Cliente, type MetodoPagamento, type Ordine, type Pagamento, type StatoOrdine } from '../lib/tipi'
+import { ETICHETTE_METODO, METODI, STATI, type Cliente, type MetodoPagamento, type Ordine, type Pagamento, type StatoOrdine } from '../lib/tipi'
 
 const ERRORE_SCRITTURA = 'Non sono riuscito a salvare. Controlla la connessione e riprova.'
 
@@ -56,7 +56,7 @@ function FormPagamento({ id }: { id: string }) {
           <label htmlFor="pg-met">Metodo</label>
           <select id="pg-met" value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPagamento | '')}>
             <option value="">Non indicato</option>
-            {METODI.map((m) => <option key={m}>{m}</option>)}
+            {METODI.map((m) => <option key={m} value={m}>{ETICHETTE_METODO[m]}</option>)}
           </select>
         </div>
         <div>
@@ -203,7 +203,7 @@ export default function OrdineDettaglio() {
       {ordine.pagamenti.length === 0 && <p>Nessun pagamento registrato.</p>}
       {ordine.pagamenti.map((p, i) => (
         <div className="scheda riga" key={i}>
-          <span>{formatData(p.data)} · {p.metodo ?? 'metodo non indicato'}</span>
+          <span>{formatData(p.data)} · {p.metodo ? ETICHETTE_METODO[p.metodo] : 'metodo non indicato'}</span>
           <span>
             <strong>{formatEuro(p.importoCent)}</strong>{' '}
             <button type="button" className="secondario" aria-label={`Rimuovi pagamento ${i + 1}`} onClick={() => togliPagamento(p)}>Rimuovi</button>

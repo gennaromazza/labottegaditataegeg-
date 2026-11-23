@@ -34,6 +34,19 @@ Solo gli account email/password creati da noi, e solo le email elencate in `fire
 
 `npm run test:rules` usa l'emulatore Firestore, che richiede **Java** installato.
 
+## Spese, utile, stampa, link
+
+- **Spese**: pagina `/spese` con categorie (tra cui Spedizioni e Rimborsi), filtro per periodo e categoria e il totale delle spedizioni.
+  La pagina Incassi mostra anche spese e utile del periodo (incassi meno spese). Un rimborso a un cliente si registra come spesa di categoria "Rimborsi".
+- **Stampa**: pulsante "Stampa" nel dettaglio ordine e "Stampa elenco" nella lista (layout di stampa in `src/styles/stampa.css`).
+- **Link ordine**: `https://<sito>/ordini/<id>`, si apre solo dopo il login (pensato per un futuro QR sul pacco).
+  Un link pubblico per i clienti richiederebbe un'altra impostazione (token non indovinabile e regole dedicate).
+
+## CAP, città e province
+
+I suggerimenti usano `src/data/comuni.json`, generato con `node scripts/genera-comuni.cjs <comuni.json>` dal database non ufficiale
+https://github.com/matteocontrini/comuni-json (dati ISTAT e CAP: la completezza dei CAP **non è garantita** dall'autore, serve come aiuto di compilazione).
+
 ## Importi e date
 
 Gli importi sono salvati in centesimi (interi). Le date sono stringhe `YYYY-MM-DD`.

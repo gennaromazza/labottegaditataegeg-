@@ -9,7 +9,7 @@ import { parseEuro } from '../lib/importi'
 import { linkOrdine } from '../lib/link'
 import { generaPdfOrdine } from '../lib/pdf'
 import { linkWhatsApp } from '../lib/whatsapp'
-import { METODI, STATI, type Cliente, type MetodoPagamento, type Ordine, type StatoOrdine } from '../lib/tipi'
+import { METODI, STATI, type Cliente, type MetodoPagamento, type Ordine, type Pagamento, type StatoOrdine } from '../lib/tipi'
 
 const ERRORE_SCRITTURA = 'Non sono riuscito a salvare. Controlla la connessione e riprova.'
 
@@ -114,9 +114,9 @@ export default function OrdineDettaglio() {
     }
   }
 
-  function togliPagamento(indice: number) {
+  function togliPagamento(p: Pagamento) {
     if (window.confirm('Rimuovere questo pagamento? Sparirà anche dagli incassi.')) {
-      void esegui(() => rimuoviPagamento(ordine!.id, indice))
+      void esegui(() => rimuoviPagamento(ordine!.id, p))
     }
   }
 
@@ -206,7 +206,7 @@ export default function OrdineDettaglio() {
           <span>{formatData(p.data)} · {p.metodo ?? 'metodo non indicato'}</span>
           <span>
             <strong>{formatEuro(p.importoCent)}</strong>{' '}
-            <button type="button" className="secondario" aria-label={`Rimuovi pagamento ${i + 1}`} onClick={() => togliPagamento(i)}>Rimuovi</button>
+            <button type="button" className="secondario" aria-label={`Rimuovi pagamento ${i + 1}`} onClick={() => togliPagamento(p)}>Rimuovi</button>
           </span>
         </div>
       ))}

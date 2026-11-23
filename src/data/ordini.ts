@@ -35,12 +35,17 @@ export async function aggiungiPagamento(id: string, p: Pagamento): Promise<void>
   })
 }
 
-export async function rimuoviPagamento(id: string, indice: number): Promise<void> {
+/** Toglie il primo pagamento uguale a quello indicato (non per posizione: se un altro utente ha già cambiato l'elenco non si cancella quello sbagliato). */
+export async function rimuoviPagamento(id: string, pagamento: Pagamento): Promise<void> {
   const ref = doc(db, 'ordini', id)
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref)
     const attuali = (snap.data()?.pagamenti as Pagamento[] | undefined) ?? []
-    tx.update(ref, { pagamenti: attuali.filter((_, i) => i !== indice) })
+    const posizione = attuali.findIndex(
+      (x) => x.importoCent === pagamento.importoCent && x.data === pagamento.data && x.metodo === pagamento.metodo,
+    )
+    if (posizione < 0) return // già rimosso da un altro utente
+    tx.update(ref, { pagamenti: attuali.filter((_, i) => i !== posizione) })
   })
 }
 

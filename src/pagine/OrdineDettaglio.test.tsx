@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   ordine: null as unknown as Ordine,
   cb: null as null | ((o: Ordine) => void),
   cliente: null as null | { id: string; nome: string; telefono?: string },
+  rimuovi: vi.fn(),
 }))
 
 vi.mock('../data/clienti', () => ({
@@ -25,7 +26,7 @@ vi.mock('../data/ordini', () => ({
     return () => {}
   },
   aggiornaOrdine: vi.fn(),
-  rimuoviPagamento: vi.fn(),
+  rimuoviPagamento: (...a: unknown[]) => h.rimuovi(...a),
   aggiungiPagamento: async (_id: string, p: Pagamento) => {
     h.ordine = { ...h.ordine, pagamenti: [...h.ordine.pagamenti, p] }
     h.cb?.(h.ordine)
@@ -81,6 +82,22 @@ it('annullato senza pagamenti non mostra residuo né badge di pagamento', () => 
   apri()
   expect(screen.queryByText('Da saldare')).not.toBeInTheDocument()
   expect(screen.queryByText('Non pagato')).not.toBeInTheDocument()
+})
+
+it('rimuove il pagamento scelto (non per posizione) solo dopo la conferma', async () => {
+  h.rimuovi.mockReset()
+  h.rimuovi.mockResolvedValue(undefined)
+  const p1 = { importoCent: 500, data: '2026-11-05' }
+  const p2 = { importoCent: 300, data: '2026-11-20', metodo: 'contanti' as const }
+  h.ordine = ordineDiProva({ pagamenti: [p1, p2] })
+  apri()
+  const conferma = vi.spyOn(window, 'confirm')
+  conferma.mockReturnValueOnce(false)
+  await userEvent.click(screen.getByRole('button', { name: 'Rimuovi pagamento 2' }))
+  expect(h.rimuovi).not.toHaveBeenCalled()
+  conferma.mockReturnValueOnce(true)
+  await userEvent.click(screen.getByRole('button', { name: 'Rimuovi pagamento 2' }))
+  expect(h.rimuovi).toHaveBeenCalledWith('o1', p2)
 })
 
 it('mostra il link dell\'ordine e lo copia', async () => {

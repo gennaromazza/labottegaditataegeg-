@@ -1,27 +1,34 @@
-import { Route, Routes, Navigate } from 'react-router-dom'
-
-function Segnaposto({ titolo }: { titolo: string }) {
-  return (
-    <main className="pagina">
-      <img src="/logo.png" alt="" height={64} />
-      <h1>La Bottega di Tata e Gegè</h1>
-      <p>{titolo}</p>
-    </main>
-  )
-}
+import { Navigate, Route, Routes } from 'react-router-dom'
+import { AuthProvider } from './auth/AuthContext'
+import { RottaProtetta } from './auth/RottaProtetta'
+import { Guscio } from './componenti/Guscio'
+import Login from './pagine/Login'
+import Ordini from './pagine/Ordini'
+import OrdineForm from './pagine/OrdineForm'
+import OrdineDettaglio from './pagine/OrdineDettaglio'
+import Clienti from './pagine/Clienti'
+import ClienteScheda from './pagine/ClienteScheda'
+import Incassi from './pagine/Incassi'
+import Listino from './pagine/Listino'
 
 export default function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<Segnaposto titolo="Accesso" />} />
-      <Route path="/ordini" element={<Segnaposto titolo="Ordini" />} />
-      <Route path="/ordini/nuovo" element={<Segnaposto titolo="Nuovo ordine" />} />
-      <Route path="/ordini/:id" element={<Segnaposto titolo="Dettaglio ordine" />} />
-      <Route path="/clienti" element={<Segnaposto titolo="Clienti" />} />
-      <Route path="/clienti/:id" element={<Segnaposto titolo="Scheda cliente" />} />
-      <Route path="/incassi" element={<Segnaposto titolo="Incassi" />} />
-      <Route path="/listino" element={<Segnaposto titolo="Listino" />} />
-      <Route path="*" element={<Navigate to="/ordini" replace />} />
-    </Routes>
+    <AuthProvider>
+      <Routes>
+        <Route path="/login" element={<Login />} />
+        <Route element={<RottaProtetta />}>
+          <Route element={<Guscio />}>
+            <Route path="/ordini" element={<Ordini />} />
+            <Route path="/ordini/nuovo" element={<OrdineForm />} />
+            <Route path="/ordini/:id" element={<OrdineDettaglio />} />
+            <Route path="/clienti" element={<Clienti />} />
+            <Route path="/clienti/:id" element={<ClienteScheda />} />
+            <Route path="/incassi" element={<Incassi />} />
+            <Route path="/listino" element={<Listino />} />
+          </Route>
+        </Route>
+        <Route path="*" element={<Navigate to="/ordini" replace />} />
+      </Routes>
+    </AuthProvider>
   )
 }

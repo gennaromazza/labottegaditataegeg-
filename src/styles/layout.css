@@ -1,0 +1,32 @@
+.login { text-align: center; padding-top: 2rem; max-width: 420px; }
+.login form { text-align: left; }
+
+.guscio { min-height: 100dvh; }
+.menu { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center;
+  background: var(--carta); border-top: 1px solid var(--bordo); }
+.menu a { flex: 1; text-align: center; padding: .9rem .25rem; color: var(--testo-tenue); text-decoration: none; font-weight: 600; }
+.menu a.attiva { color: var(--arancio); border-top: 3px solid var(--arancio); }
+.menu-logo { display: none; }
+.menu .esci { min-height: 36px; margin: 0 .5rem; padding: .25rem .6rem; font-size: .85rem; }
+@media (min-width: 800px) {
+  .menu { top: 0; bottom: auto; right: auto; width: 200px; flex-direction: column; align-items: stretch;
+    border-top: 0; border-right: 1px solid var(--bordo); padding: 1rem .5rem; height: 100dvh; }
+  .menu a { text-align: left; padding: .7rem .9rem; border-radius: 10px; flex: none; }
+  .menu a.attiva { border-top: 0; background: #f3e2cb; }
+  .menu-logo { display: block; width: 100%; margin-bottom: 1rem; }
+  .menu .esci { margin: auto 0 0; }
+  .contenuto { margin-left: 200px; }
+}
+.riga { display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
+.badge { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .8rem; font-weight: 700;
+  background: #efe3d0; color: var(--legno); }
+.badge.ok { background: #d9efe0; color: var(--ok); }
+.badge.avviso { background: #fbe0dd; color: var(--attenzione); }
+.fab { position: fixed; right: 1rem; bottom: 4.6rem; z-index: 5; box-shadow: 0 4px 12px #0003; border-radius: 999px;
+  padding: .8rem 1.3rem; text-decoration: none; }
+@media (min-width: 800px) { .fab { bottom: 1.5rem; } }
+.griglia2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
+.barra { height: 10px; border-radius: 6px; background: var(--arancio-chiaro); }
+a.bottone { display: inline-block; text-decoration: none; text-align: center; line-height: 28px; }
+.link-scheda { color: inherit; text-decoration: none; display: block; }
+.azioni { display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0; }

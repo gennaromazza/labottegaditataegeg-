@@ -7,6 +7,10 @@ describe('normalizzaTelefono', () => {
     ['+39 333 1234567', '393331234567'],
     ['0039 333 1234567', '393331234567'],
     ['+44 7700 900123', '447700900123'],
+    ['39 333 1234567', '393331234567'],
+    ['393331234567', '393331234567'],
+    ['3931234567', '393931234567'], // numero nazionale di 10 cifre che inizia per 39
+    ['081 1234567', '390811234567'],
   ])('%s', (raw, atteso) => expect(normalizzaTelefono(raw)).toBe(atteso))
   it('vuoto o non numerico = null', () => {
     expect(normalizzaTelefono('')).toBeNull()
@@ -28,6 +32,17 @@ describe('messaggioOrdine', () => {
     expect(m).toContain('12,50')
     expect(m).toContain('10/12/2026')
   })
+})
+
+describe('messaggioOrdine: riga del residuo', () => {
+  const pag = (importoCent: number) => ({ importoCent, data: '2026-11-05' })
+  it('eccedente → "Pagato in più", mai un importo negativo', () => {
+    const m = messaggioOrdine(ordineDiProva({ pagamenti: [pag(2000)] }))
+    expect(m).toContain('Pagato in più')
+    expect(m).not.toContain('-')
+  })
+  it('saldato', () => expect(messaggioOrdine(ordineDiProva({ pagamenti: [pag(1750)] }))).toContain('Saldato'))
+  it('annullato', () => expect(messaggioOrdine(ordineDiProva({ stato: 'annullato' }))).toContain('Ordine annullato'))
 })
 
 describe('linkWhatsApp', () => {

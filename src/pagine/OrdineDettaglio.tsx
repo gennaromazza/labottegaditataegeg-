@@ -1,13 +1,16 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { BadgePagamento } from '../componenti/BadgePagamento'
+import { ascoltaCliente } from '../data/clienti'
 import { aggiornaOrdine, aggiungiPagamento, ascoltaOrdine, rimuoviPagamento } from '../data/ordini'
 import { oggiISO } from '../data/util'
 import { formatData, formatEuro, residuoCent, totaleCent, versatoCent } from '../lib/calcoli'
 import { parseEuro } from '../lib/importi'
 import { generaPdfOrdine } from '../lib/pdf'
 import { linkWhatsApp } from '../lib/whatsapp'
-import { METODI, STATI, type MetodoPagamento, type Ordine, type StatoOrdine } from '../lib/tipi'
+import { METODI, STATI, type Cliente, type MetodoPagamento, type Ordine, type StatoOrdine } from '../lib/tipi'
+
+const ERRORE_SCRITTURA = 'Non sono riuscito a salvare. Controlla la connessione e riprova.'
 
 async function caricaLogo(): Promise<string | undefined> {
   try {
@@ -34,8 +37,12 @@ function FormPagamento({ id }: { id: string }) {
     const cent = parseEuro(importo)
     if (cent === null || cent <= 0) return setErrore('Scrivi un importo valido')
     setErrore('')
-    await aggiungiPagamento(id, { importoCent: cent, data: data || oggiISO(), ...(metodo ? { metodo } : {}) })
-    setImporto('')
+    try {
+      await aggiungiPagamento(id, { importoCent: cent, data: data || oggiISO(), ...(metodo ? { metodo } : {}) })
+      setImporto('')
+    } catch {
+      setErrore(ERRORE_SCRITTURA)
+    }
   }
 
   return (
@@ -67,13 +74,38 @@ export default function OrdineDettaglio() {
   const [ordine, setOrdine] = useState<Ordine | null | undefined>(undefined)
   const [erroreAzione, setErroreAzione] = useState('')
 
+  const [cliente, setCliente] = useState<Cliente | null>(null)
+
   useEffect(() => ascoltaOrdine(id, setOrdine), [id])
+  const clienteId = ordine?.clienteId
+  useEffect(() => (clienteId ? ascoltaCliente(clienteId, setCliente) : undefined), [clienteId])
 
   if (ordine === undefined) return <main className="pagina">Caricamento…</main>
   if (ordine === null) return <main className="pagina"><p>Ordine non trovato.</p><Link to="/ordini">Torna agli ordini</Link></main>
 
-  const link = linkWhatsApp(ordine)
+  // nome e telefono sono copiati nell'ordine alla creazione: se la scheda cliente cambia, vale la scheda
+  const vivo: Ordine = {
+    ...ordine,
+    clienteNome: cliente?.nome || ordine.clienteNome,
+    clienteTelefono: cliente?.telefono || ordine.clienteTelefono,
+  }
+  const link = linkWhatsApp(vivo)
   const residuo = residuoCent(ordine)
+
+  async function esegui(azione: () => Promise<void>) {
+    setErroreAzione('')
+    try {
+      await azione()
+    } catch {
+      setErroreAzione(ERRORE_SCRITTURA)
+    }
+  }
+
+  function togliPagamento(indice: number) {
+    if (window.confirm('Rimuovere questo pagamento? Sparirà anche dagli incassi.')) {
+      void esegui(() => rimuoviPagamento(ordine!.id, indice))
+    }
+  }
 
   async function scaricaPdf(o: Ordine) {
     setErroreAzione('')
@@ -101,7 +133,7 @@ export default function OrdineDettaglio() {
       </p>
 
       <label htmlFor="stato">Stato dell&apos;ordine</label>
-      <select id="stato" value={ordine.stato} onChange={(e) => void aggiornaOrdine(ordine.id, { stato: e.target.value as StatoOrdine })}>
+      <select id="stato" value={ordine.stato} onChange={(e) => void esegui(() => aggiornaOrdine(ordine.id, { stato: e.target.value as StatoOrdine }))}>
         {STATI.map((s) => <option key={s}>{s}</option>)}
       </select>
 
@@ -115,10 +147,12 @@ export default function OrdineDettaglio() {
         <hr />
         <div className="riga"><span>Totale</span><strong>{formatEuro(totaleCent(ordine.righe))}</strong></div>
         <div className="riga"><span>Versato</span><strong>{formatEuro(versatoCent(ordine))}</strong></div>
-        <div className="riga">
-          <span>{residuo < 0 ? 'Pagato in più' : 'Da saldare'}</span>
-          <strong>{formatEuro(Math.abs(residuo))}</strong>
-        </div>
+        {ordine.stato !== 'annullato' && (
+          <div className="riga">
+            <span>{residuo < 0 ? 'Pagato in più' : 'Da saldare'}</span>
+            <strong>{formatEuro(Math.abs(residuo))}</strong>
+          </div>
+        )}
         <p><BadgePagamento ordine={ordine} /></p>
         {ordine.note && <p>Note: {ordine.note}</p>}
       </section>
@@ -132,7 +166,7 @@ export default function OrdineDettaglio() {
             <small>Aggiungi il telefono del cliente</small>
           </>
         )}
-        <button type="button" className="secondario" onClick={() => void scaricaPdf(ordine)}>Scarica PDF</button>
+        <button type="button" className="secondario" onClick={() => void scaricaPdf(vivo)}>Scarica PDF</button>
       </div>
       {erroreAzione && <p className="errore" role="alert">{erroreAzione}</p>}
 
@@ -143,7 +177,7 @@ export default function OrdineDettaglio() {
           <span>{formatData(p.data)} · {p.metodo ?? 'metodo non indicato'}</span>
           <span>
             <strong>{formatEuro(p.importoCent)}</strong>{' '}
-            <button type="button" className="secondario" aria-label={`Rimuovi pagamento ${i + 1}`} onClick={() => void rimuoviPagamento(ordine.id, i)}>Rimuovi</button>
+            <button type="button" className="secondario" aria-label={`Rimuovi pagamento ${i + 1}`} onClick={() => togliPagamento(i)}>Rimuovi</button>
           </span>
         </div>
       ))}

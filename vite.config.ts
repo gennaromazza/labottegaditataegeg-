@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      workbox: { navigateFallbackDenylist: [/^\/__\//] },
       manifest: {
         name: 'La Bottega di Tata e Gegè',
         short_name: 'La Bottega',

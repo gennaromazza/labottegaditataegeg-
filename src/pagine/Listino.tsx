@@ -10,7 +10,11 @@ function VoceRiga({ voce }: { voce: VoceListino }) {
     const cent = parseEuro(prezzo)
     if (cent === null) return setErrore('Prezzo non valido')
     setErrore('')
-    await salvaVoceListino({ ...voce, prezzoCent: cent })
+    try {
+      await salvaVoceListino({ ...voce, prezzoCent: cent })
+    } catch {
+      setErrore('Non sono riuscito a salvare. Controlla la connessione e riprova.')
+    }
   }
 
   return (
@@ -45,9 +49,13 @@ export default function Listino() {
     const cent = parseEuro(prezzo)
     if (!nome.trim() || cent === null) return setErrore('Scrivi il nome e un prezzo valido')
     setErrore('')
-    await salvaVoceListino({ nome: nome.trim(), prezzoCent: cent, attivo: true })
-    setNome('')
-    setPrezzo('')
+    try {
+      await salvaVoceListino({ nome: nome.trim(), prezzoCent: cent, attivo: true })
+      setNome('')
+      setPrezzo('')
+    } catch {
+      setErrore('Non sono riuscito a salvare. Controlla la connessione e riprova.')
+    }
   }
 
   return (

@@ -8,6 +8,14 @@ import type { Ordine, Pagamento } from '../lib/tipi'
 const h = vi.hoisted(() => ({
   ordine: null as unknown as Ordine,
   cb: null as null | ((o: Ordine) => void),
+  cliente: null as null | { id: string; nome: string; telefono?: string },
+}))
+
+vi.mock('../data/clienti', () => ({
+  ascoltaCliente: (_id: string, cb: (c: unknown) => void) => {
+    cb(h.cliente)
+    return () => {}
+  },
 }))
 
 vi.mock('../data/ordini', () => ({
@@ -23,6 +31,10 @@ vi.mock('../data/ordini', () => ({
     h.cb?.(h.ordine)
   },
 }))
+
+beforeEach(() => {
+  h.cliente = null
+})
 
 const apri = () =>
   render(
@@ -54,6 +66,21 @@ it('con telefono il link WhatsApp è un wa.me', () => {
   apri()
   const a = screen.getByRole('link', { name: 'Invia su WhatsApp' })
   expect(a.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/393331234567\?text=/)
+})
+
+it('il telefono aggiunto dopo nella scheda cliente abilita WhatsApp', () => {
+  h.ordine = ordineDiProva({ clienteTelefono: undefined })
+  h.cliente = { id: 'c1', nome: 'Maria Rossi', telefono: '333 7654321' }
+  apri()
+  const a = screen.getByRole('link', { name: 'Invia su WhatsApp' })
+  expect(a.getAttribute('href')).toMatch(/^https:\/\/wa\.me\/393337654321\?text=/)
+})
+
+it('annullato senza pagamenti non mostra residuo né badge di pagamento', () => {
+  h.ordine = ordineDiProva({ stato: 'annullato' })
+  apri()
+  expect(screen.queryByText('Da saldare')).not.toBeInTheDocument()
+  expect(screen.queryByText('Non pagato')).not.toBeInTheDocument()
 })
 
 it('annullato con versato mostra Da rimborsare', () => {

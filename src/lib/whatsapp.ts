@@ -8,12 +8,22 @@ export function normalizzaTelefono(raw: string, prefisso = '39'): string | null 
     // già internazionale
   } else if (cifre.startsWith('00')) {
     cifre = cifre.slice(2)
+  } else if (cifre.startsWith(prefisso) && cifre.length >= 11) {
+    // già con il prefisso del paese ma senza "+" (es. 393331234567): non si raddoppia
   } else {
     cifre = prefisso + cifre
   }
   const soloCifreUtente = raw.replace(/\D/g, '')
   if (soloCifreUtente.length < 6 || cifre.length < 8) return null
   return cifre
+}
+
+function rigaResiduo(o: Ordine): string {
+  const residuo = residuoCent(o)
+  if (o.stato === 'annullato') return 'Ordine annullato'
+  if (residuo > 0) return `Da saldare: ${formatEuro(residuo)}`
+  if (residuo < 0) return `Pagato in più: ${formatEuro(-residuo)}`
+  return 'Saldato'
 }
 
 export function messaggioOrdine(o: Ordine): string {
@@ -28,7 +38,7 @@ export function messaggioOrdine(o: Ordine): string {
     '',
     `Totale: ${formatEuro(totaleCent(o.righe))}`,
     `Versato: ${formatEuro(versatoCent(o))}`,
-    `Da saldare: ${formatEuro(residuoCent(o))}`,
+    rigaResiduo(o),
   ]
   if (o.dataConsegna) parti.push(`Consegna prevista: ${formatData(o.dataConsegna)}`)
   parti.push('', 'Grazie! 🧡')

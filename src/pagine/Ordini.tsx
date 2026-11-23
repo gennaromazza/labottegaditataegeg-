@@ -48,7 +48,7 @@ export default function Ordini() {
             </div>
             <div className="riga">
               <span>Totale {formatEuro(totaleCent(o.righe))}</span>
-              <strong>{residuoCent(o) > 0 ? `Da incassare ${formatEuro(residuoCent(o))}` : ''}</strong>
+              <strong>{o.stato !== 'annullato' && residuoCent(o) > 0 ?`Da incassare ${formatEuro(residuoCent(o))}` : ''}</strong>
             </div>
           </Link>
         ))}

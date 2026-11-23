@@ -15,6 +15,13 @@ it('genera un PDF non vuoto anche con emoji e &', async () => {
   expect(blob.size).toBeGreaterThan(500)
 })
 
+it('con molte righe i totali vanno su una nuova pagina e non fuori dal foglio', async () => {
+  const righe = Array.from({ length: 45 }, (_, i) => ({ descrizione: `Prodotto ${i}`, quantita: 1, prezzoUnitarioCent: 100 }))
+  const blob = await generaPdfOrdine(ordineDiProva({ righe }))
+  const testo = new TextDecoder('latin1').decode(await blob.arrayBuffer())
+  expect((testo.match(/\/Type \/Page\b/g) ?? []).length).toBeGreaterThanOrEqual(2)
+})
+
 it('un logo non valido non blocca la generazione', async () => {
   const blob = await generaPdfOrdine(ordineDiProva(), 'data:image/png;base64,AAAA')
   expect(blob.size).toBeGreaterThan(500)

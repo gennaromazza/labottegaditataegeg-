@@ -27,8 +27,12 @@ export function SelezionaCliente({ onScelto }: Props) {
       return
     }
     setErrore('')
-    const c = await creaCliente({ nome: nome.trim(), ...(telefono.trim() ? { telefono: telefono.trim() } : {}) })
-    onScelto(c)
+    try {
+      const c = await creaCliente({ nome: nome.trim(), ...(telefono.trim() ? { telefono: telefono.trim() } : {}) })
+      onScelto(c)
+    } catch {
+      setErrore('Non sono riuscito a salvare il cliente. Controlla la connessione e riprova.')
+    }
   }
 
   return (

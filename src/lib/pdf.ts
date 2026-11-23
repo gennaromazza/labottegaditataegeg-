@@ -64,6 +64,10 @@ export async function generaPdfOrdine(o: Ordine, logoDataUrl?: string): Promise<
     y += righeTesto.length * 5 + 2
   }
 
+  if (y > 245) {
+    doc.addPage()
+    y = 20
+  }
   y += 2
   doc.line(margine, y, larghezza - margine, y)
   y += 7

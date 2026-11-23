@@ -29,8 +29,12 @@ function FormSpedizione({ cliente }: { cliente: Cliente }) {
       citta: citta.trim(),
       provincia: provincia.trim().toUpperCase(),
     }
-    await aggiornaCliente(cliente.id, { spedizione })
-    setSalvato(true)
+    try {
+      await aggiornaCliente(cliente.id, { spedizione })
+      setSalvato(true)
+    } catch {
+      setErrore('Non sono riuscito a salvare. Controlla la connessione e riprova.')
+    }
   }
 
   return (
@@ -64,12 +68,17 @@ function FormAnagrafica({ cliente }: { cliente: Cliente }) {
   const [telefono, setTelefono] = useState(cliente.telefono ?? '')
   const [note, setNote] = useState(cliente.note ?? '')
   const [salvato, setSalvato] = useState(false)
+  const [errore, setErrore] = useState('')
 
   async function salva(e: FormEvent) {
     e.preventDefault()
     if (!nome.trim()) return
-    await aggiornaCliente(cliente.id, { nome: nome.trim(), telefono: telefono.trim(), note: note.trim() })
-    setSalvato(true)
+    try {
+      await aggiornaCliente(cliente.id, { nome: nome.trim(), telefono: telefono.trim(), note: note.trim() })
+      setSalvato(true)
+    } catch {
+      setErrore('Non sono riuscito a salvare. Controlla la connessione e riprova.')
+    }
   }
 
   return (
@@ -81,6 +90,7 @@ function FormAnagrafica({ cliente }: { cliente: Cliente }) {
       <input id="an-tel" type="tel" value={telefono} onChange={(e) => setTelefono(e.target.value)} />
       <label htmlFor="an-note">Note</label>
       <textarea id="an-note" value={note} onChange={(e) => setNote(e.target.value)} />
+      {errore && <p className="errore" role="alert">{errore}</p>}
       {salvato && <p role="status">Anagrafica salvata</p>}
       <p><button type="submit">Salva anagrafica</button></p>
     </form>

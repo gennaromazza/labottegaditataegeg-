@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore'
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { Cliente } from '../lib/tipi'
 import { senzaUndefined } from './util'
@@ -12,6 +12,10 @@ export async function creaCliente(dati: Omit<Cliente, 'id'>): Promise<Cliente> {
 
 export async function aggiornaCliente(id: string, patch: Partial<Omit<Cliente, 'id'>>): Promise<void> {
   await updateDoc(doc(db, 'clienti', id), senzaUndefined(patch))
+}
+
+export async function eliminaCliente(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'clienti', id))
 }
 
 export function ascoltaClienti(cb: (clienti: Cliente[]) => void): () => void {

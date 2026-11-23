@@ -1,8 +1,8 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BadgePagamento } from '../componenti/BadgePagamento'
 import { ascoltaCliente } from '../data/clienti'
-import { aggiornaOrdine, aggiungiPagamento, ascoltaOrdine, rimuoviPagamento } from '../data/ordini'
+import { aggiornaOrdine, aggiungiPagamento, ascoltaOrdine, eliminaOrdine, rimuoviPagamento } from '../data/ordini'
 import { oggiISO } from '../data/util'
 import { formatData, formatEuro, residuoCent, totaleCent, versatoCent } from '../lib/calcoli'
 import { parseEuro } from '../lib/importi'
@@ -75,6 +75,7 @@ export default function OrdineDettaglio() {
   const [ordine, setOrdine] = useState<Ordine | null | undefined>(undefined)
   const [erroreAzione, setErroreAzione] = useState('')
   const [copiato, setCopiato] = useState(false)
+  const navigate = useNavigate()
 
   const [cliente, setCliente] = useState<Cliente | null>(null)
 
@@ -112,6 +113,19 @@ export default function OrdineDettaglio() {
       document.getElementById('link-ordine')?.focus()
       setErroreAzione('Non sono riuscito a copiare: seleziona il link qui sopra e copialo a mano.')
     }
+  }
+
+  function eliminaQuestoOrdine() {
+    const versato = versatoCent(ordine!)
+    const testo =
+      versato > 0
+        ? `Eliminare l'ordine n. ${ordine!.numero}? Ha pagamenti per ${formatEuro(versato)}: spariranno anche dagli incassi. Non si può annullare. Se il cliente ha rinunciato, di solito basta mettere lo stato "annullato".`
+        : `Eliminare l'ordine n. ${ordine!.numero}? Non si può annullare.`
+    if (!window.confirm(testo)) return
+    void esegui(async () => {
+      await eliminaOrdine(ordine!.id)
+      navigate('/ordini')
+    })
   }
 
   function togliPagamento(p: Pagamento) {
@@ -211,6 +225,10 @@ export default function OrdineDettaglio() {
         </div>
       ))}
       <FormPagamento id={ordine.id} />
+
+      <p className="no-stampa">
+        <button type="button" className="pericolo" onClick={eliminaQuestoOrdine}>Elimina ordine</button>
+      </p>
     </main>
   )
 }

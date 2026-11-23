@@ -12,6 +12,10 @@ vi.mock('../data/clienti', () => ({
     cb([{ id: 'c1', nome: 'Maria Rossi', telefono: '333 1234567' }])
     return () => {}
   },
+  ascoltaCliente: (id: string, cb: (c: unknown) => void) => {
+    cb(id === 'c1' ? { id: 'c1', nome: 'Maria Rossi', telefono: '333 1234567' } : null)
+    return () => {}
+  },
   creaCliente: vi.fn(),
 }))
 vi.mock('../data/listino', () => ({
@@ -47,6 +51,29 @@ async function scegliCliente() {
   await userEvent.type(screen.getByLabelText(/Cerca cliente/), 'mar')
   await userEvent.click(screen.getByRole('button', { name: /Maria Rossi/ }))
 }
+
+it('dalla scheda cliente (?cliente=) il cliente è già scelto', async () => {
+  render(
+    <MemoryRouter initialEntries={['/ordini/nuovo?cliente=c1']}>
+      <OrdineForm />
+    </MemoryRouter>,
+  )
+  expect(await screen.findByText(/Maria Rossi · 333 1234567/)).toBeInTheDocument()
+  expect(screen.queryByLabelText(/Cerca cliente/)).not.toBeInTheDocument()
+  await userEvent.type(screen.getByLabelText('Prodotto 1'), 'Candela')
+  await userEvent.type(screen.getByLabelText(/Prezzo unitario 1/), '8')
+  await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+  expect(h.crea.mock.calls[0][0].clienteId).toBe('c1')
+})
+
+it('un cliente inesistente nel link non rompe il form', async () => {
+  render(
+    <MemoryRouter initialEntries={['/ordini/nuovo?cliente=zzz']}>
+      <OrdineForm />
+    </MemoryRouter>,
+  )
+  expect(screen.getByLabelText(/Cerca cliente/)).toBeInTheDocument()
+})
 
 it('senza cliente o senza righe non invia', async () => {
   apri()

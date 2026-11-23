@@ -1,8 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useParams } from 'react-router-dom'
-import { aggiornaCliente, ascoltaCliente } from '../data/clienti'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { aggiornaCliente, ascoltaCliente, eliminaCliente } from '../data/clienti'
 import { ascoltaOrdini } from '../data/ordini'
-import { formatEuro, versatoCent } from '../lib/calcoli'
+import { OrdineCard } from '../componenti/OrdineCard'
+import { formatEuro, residuoCent, versatoCent } from '../lib/calcoli'
 import { caricaComuni, cercaPerCap, cercaPerNome, type Comune } from '../lib/comuni'
 import type { Cliente, Ordine, Spedizione } from '../lib/tipi'
 
@@ -190,6 +191,8 @@ export default function ClienteScheda() {
   const { id = '' } = useParams()
   const [cliente, setCliente] = useState<Cliente | null | undefined>(undefined)
   const [ordini, setOrdini] = useState<Ordine[]>([])
+  const [erroreElimina, setErroreElimina] = useState('')
+  const navigate = useNavigate()
 
   useEffect(() => ascoltaCliente(id, setCliente), [id])
   useEffect(() => ascoltaOrdini(setOrdini), [])
@@ -198,22 +201,52 @@ export default function ClienteScheda() {
   if (cliente === null) return <main className="pagina"><p>Cliente non trovato.</p><Link to="/clienti">Torna ai clienti</Link></main>
 
   const suoi = ordini.filter((o) => o.clienteId === cliente.id)
-  const speso = suoi.reduce((s, o) => s + versatoCent(o), 0)
+  const incassato = suoi.reduce((s, o) => s + versatoCent(o), 0)
+  const daIncassare = suoi.filter((o) => o.stato !== 'annullato').reduce((s, o) => s + Math.max(0, residuoCent(o)), 0)
+  const aperti = suoi.filter((o) => o.stato !== 'consegnato' && o.stato !== 'annullato').length
+
+  async function eliminaQuestoCliente() {
+    const testo =
+      suoi.length > 0
+        ? `Eliminare ${cliente!.nome}? Ha ordini collegati (${suoi.length}): restano nell'elenco ordini con il nome e il telefono già copiati, ma la scheda cliente sparisce. Non si può annullare.`
+        : `Eliminare ${cliente!.nome}? Non si può annullare.`
+    if (!window.confirm(testo)) return
+    setErroreElimina('')
+    try {
+      await eliminaCliente(cliente!.id)
+      navigate('/clienti')
+    } catch {
+      setErroreElimina('Non sono riuscito a eliminare. Controlla la connessione e riprova.')
+    }
+  }
 
   return (
     <main className="pagina">
       <p><Link to="/clienti">← Clienti</Link></p>
       <h1>{cliente.nome}</h1>
-      <p>Totale incassato da questo cliente: <strong>{formatEuro(speso)}</strong> in {suoi.length} ordini</p>
+      <p>{cliente.telefono ?? 'Nessun telefono'}</p>
+
+      <section aria-label="Ordini del cliente">
+        <div className="riga">
+          <h2>Ordini ({suoi.length})</h2>
+          <Link to={`/ordini/nuovo?cliente=${encodeURIComponent(cliente.id)}`} className="bottone">+ Nuovo ordine</Link>
+        </div>
+        {suoi.length > 0 && (
+          <p>
+            Aperti: <strong>{aperti}</strong> · Incassato: <strong>{formatEuro(incassato)}</strong> · Da incassare: <strong>{formatEuro(daIncassare)}</strong>
+          </p>
+        )}
+        {suoi.length === 0 && <p>Nessun ordine per questo cliente.</p>}
+        {suoi.map((o) => <OrdineCard key={o.id} ordine={o} mostraCliente={false} />)}
+      </section>
+
       <FormAnagrafica key={`a-${cliente.id}`} cliente={cliente} />
       <FormSpedizione key={`s-${cliente.id}`} cliente={cliente} />
-      <h2>Ordini</h2>
-      {suoi.length === 0 && <p>Nessun ordine.</p>}
-      {suoi.map((o) => (
-        <Link key={o.id} to={`/ordini/${o.id}`} className="scheda link-scheda">
-          <div className="riga"><strong>Ordine n. {o.numero}</strong><span className="badge">{o.stato}</span></div>
-        </Link>
-      ))}
+
+      {erroreElimina && <p className="errore" role="alert">{erroreElimina}</p>}
+      <p className="no-stampa">
+        <button type="button" className="pericolo" onClick={() => void eliminaQuestoCliente()}>Elimina cliente</button>
+      </p>
     </main>
   )
 }

@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   clienti: [] as Cliente[],
   aggiorna: vi.fn(),
   crea: vi.fn(),
+  elimina: vi.fn(),
 }))
 
 vi.mock('../data/clienti', () => ({
@@ -22,6 +23,7 @@ vi.mock('../data/clienti', () => ({
     return () => {}
   },
   aggiornaCliente: (...a: unknown[]) => h.aggiorna(...a),
+  eliminaCliente: (...a: unknown[]) => h.elimina(...a),
   creaCliente: (...a: unknown[]) => h.crea(...a),
 }))
 vi.mock('../data/ordini', () => ({
@@ -41,6 +43,8 @@ beforeEach(() => {
   ]
   h.aggiorna.mockReset()
   h.crea.mockReset()
+  h.elimina.mockReset()
+  h.elimina.mockResolvedValue(undefined)
 })
 
 function scheda() {
@@ -64,11 +68,32 @@ it('la ricerca "mar" filtra Maria Rossi', async () => {
   expect(screen.queryByText('Luca Bianchi')).not.toBeInTheDocument()
 })
 
-it('la scheda mostra storico ordini e totale incassato', () => {
+it('la scheda mostra in alto gli ordini del cliente, apribili, con il riepilogo', () => {
   scheda()
-  expect(screen.getByText('Ordine n. 7')).toBeInTheDocument()
-  expect(screen.queryByText('Ordine n. 8')).not.toBeInTheDocument()
-  expect(screen.getByText(/5,00/)).toBeInTheDocument()
+  const sezione = screen.getByRole('region', { name: 'Ordini del cliente' })
+  expect(sezione).toHaveTextContent('Ordini (1)')
+  expect(sezione).toHaveTextContent('n. 7')
+  expect(sezione).not.toHaveTextContent('n. 8') // ordine di un altro cliente
+  expect(sezione).toHaveTextContent('Incassato: 5,00')
+  expect(sezione).toHaveTextContent('Da incassare: 12,50')
+  expect(screen.getByRole('link', { name: /n\. 7/ })).toHaveAttribute('href', '/ordini/o1')
+})
+
+it('"Nuovo ordine" parte con il cliente già scelto', () => {
+  scheda()
+  expect(screen.getByRole('link', { name: '+ Nuovo ordine' })).toHaveAttribute('href', '/ordini/nuovo?cliente=c1')
+})
+
+it('elimina il cliente solo dopo la conferma e avvisa degli ordini collegati', async () => {
+  scheda()
+  const conferma = vi.spyOn(window, 'confirm')
+  conferma.mockReturnValueOnce(false)
+  await userEvent.click(screen.getByRole('button', { name: 'Elimina cliente' }))
+  expect(h.elimina).not.toHaveBeenCalled()
+  conferma.mockReturnValueOnce(true)
+  await userEvent.click(screen.getByRole('button', { name: 'Elimina cliente' }))
+  expect(conferma).toHaveBeenLastCalledWith(expect.stringContaining('ordini collegati (1)'))
+  expect(h.elimina).toHaveBeenCalledWith('c1')
 })
 
 it('salva i dati di spedizione validi', async () => {

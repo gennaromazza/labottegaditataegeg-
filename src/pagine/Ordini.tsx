@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { BadgePagamento } from '../componenti/BadgePagamento'
+import { OrdineCard } from '../componenti/OrdineCard'
 import { ascoltaOrdini } from '../data/ordini'
-import { formatData, formatEuro, residuoCent, totaleCent } from '../lib/calcoli'
 import { CANALI, STATI, type Canale, type Ordine, type StatoOrdine } from '../lib/tipi'
 
 export default function Ordini() {
@@ -43,22 +42,7 @@ export default function Ordini() {
 
       <div style={{ marginTop: '1rem' }}>
         {visibili.length === 0 && <p>Nessun ordine.</p>}
-        {visibili.map((o) => (
-          <Link key={o.id} to={`/ordini/${o.id}`} className="scheda link-scheda">
-            <div className="riga">
-              <strong>n. {o.numero} · {o.clienteNome}</strong>
-              <span className="badge">{o.stato}</span>
-            </div>
-            <div className="riga">
-              <span>{o.canale}{o.dataConsegna ? ` · consegna ${formatData(o.dataConsegna)}` : ''}</span>
-              <BadgePagamento ordine={o} />
-            </div>
-            <div className="riga">
-              <span>Totale {formatEuro(totaleCent(o.righe))}</span>
-              <strong>{o.stato !== 'annullato' && residuoCent(o) > 0 ?`Da incassare ${formatEuro(residuoCent(o))}` : ''}</strong>
-            </div>
-          </Link>
-        ))}
+        {visibili.map((o) => <OrdineCard key={o.id} ordine={o} />)}
       </div>
       <Link to="/ordini/nuovo" className="bottone fab">+ Nuovo ordine</Link>
     </main>

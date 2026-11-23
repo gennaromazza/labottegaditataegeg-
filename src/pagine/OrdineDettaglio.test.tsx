@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
   cb: null as null | ((o: Ordine) => void),
   cliente: null as null | { id: string; nome: string; telefono?: string },
   rimuovi: vi.fn(),
+  elimina: vi.fn(),
 }))
 
 vi.mock('../data/clienti', () => ({
@@ -27,6 +28,7 @@ vi.mock('../data/ordini', () => ({
   },
   aggiornaOrdine: vi.fn(),
   rimuoviPagamento: (...a: unknown[]) => h.rimuovi(...a),
+  eliminaOrdine: (...a: unknown[]) => h.elimina(...a),
   aggiungiPagamento: async (_id: string, p: Pagamento) => {
     h.ordine = { ...h.ordine, pagamenti: [...h.ordine.pagamenti, p] }
     h.cb?.(h.ordine)
@@ -98,6 +100,34 @@ it('rimuove il pagamento scelto (non per posizione) solo dopo la conferma', asyn
   conferma.mockReturnValueOnce(true)
   await userEvent.click(screen.getByRole('button', { name: 'Rimuovi pagamento 2' }))
   expect(h.rimuovi).toHaveBeenCalledWith('o1', p2)
+})
+
+it('elimina l\'ordine solo dopo la conferma, avvisando dei pagamenti che spariscono', async () => {
+  h.elimina.mockReset()
+  h.elimina.mockResolvedValue(undefined)
+  h.ordine = ordineDiProva({ pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
+  apri()
+  const conferma = vi.spyOn(window, 'confirm')
+  conferma.mockReturnValueOnce(false)
+  await userEvent.click(screen.getByRole('button', { name: 'Elimina ordine' }))
+  expect(h.elimina).not.toHaveBeenCalled()
+  conferma.mockReturnValueOnce(true)
+  await userEvent.click(screen.getByRole('button', { name: 'Elimina ordine' }))
+  expect(conferma).toHaveBeenLastCalledWith(expect.stringContaining('5,00'))
+  expect(h.elimina).toHaveBeenCalledWith('o1')
+})
+
+it('se l\'eliminazione fallisce si vede un errore e l\'ordine resta', async () => {
+  h.elimina.mockReset()
+  h.elimina.mockImplementation(async () => {
+    throw new Error('offline')
+  })
+  h.ordine = ordineDiProva()
+  apri()
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
+  await userEvent.click(screen.getByRole('button', { name: 'Elimina ordine' }))
+  expect(await screen.findByText(/Non sono riuscito a salvare/)).toBeInTheDocument()
+  expect(screen.getByRole('heading', { name: 'Ordine n. 7' })).toBeInTheDocument()
 })
 
 it('mostra il link dell\'ordine e lo copia', async () => {

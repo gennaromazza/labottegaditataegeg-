@@ -1,4 +1,4 @@
-import { collection, doc, onSnapshot, orderBy, query, runTransaction, updateDoc } from 'firebase/firestore'
+import { collection, deleteDoc, doc, onSnapshot, orderBy, query, runTransaction, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
 import type { Ordine, Pagamento } from '../lib/tipi'
 import { oggiISO, senzaUndefined } from './util'
@@ -47,6 +47,10 @@ export async function rimuoviPagamento(id: string, pagamento: Pagamento): Promis
     if (posizione < 0) return // già rimosso da un altro utente
     tx.update(ref, { pagamenti: attuali.filter((_, i) => i !== posizione) })
   })
+}
+
+export async function eliminaOrdine(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'ordini', id))
 }
 
 export function ascoltaOrdini(cb: (ordini: Ordine[]) => void): () => void {

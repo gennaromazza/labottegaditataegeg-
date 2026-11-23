@@ -21,6 +21,7 @@ button, .bottone {
   background: var(--arancio); color: #fff; font-size: 1rem; font-weight: 600; cursor: pointer;
 }
 button:disabled { opacity: .5; cursor: not-allowed; }
+button.pericolo { background: transparent; color: var(--attenzione); border: 2px solid var(--attenzione); }
 button.secondario { background: transparent; color: var(--arancio); border: 2px solid var(--arancio); }
 input, select, textarea {
   width: 100%; min-height: 44px; padding: .5rem .75rem; font-size: 1rem;

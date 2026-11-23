@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { ascoltaCliente } from '../data/clienti'
 import { SelezionaCliente } from '../componenti/SelezionaCliente'
 import { RigheEditor, righeDaForm, rigaVuota, type RigaForm } from '../componenti/RigheEditor'
 import { creaOrdine } from '../data/ordini'
@@ -23,6 +24,16 @@ export default function OrdineForm() {
   const [invio, setInvio] = useState(false)
 
   useEffect(() => ascoltaListino(setListino), [])
+
+  // /ordini/nuovo?cliente=<id>: parte dalla scheda cliente con il cliente già scelto
+  const [params] = useSearchParams()
+  const clienteDaLink = params.get('cliente')
+  useEffect(() => {
+    if (!clienteDaLink) return undefined
+    return ascoltaCliente(clienteDaLink, (c) => {
+      if (c) setCliente((attuale) => attuale ?? c)
+    })
+  }, [clienteDaLink])
 
   const valide = righeDaForm(righe)
   const totale = valide ? totaleCent(valide) : 0

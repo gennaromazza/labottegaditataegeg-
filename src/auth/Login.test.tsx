@@ -5,7 +5,7 @@ import App from '../App'
 
 const h = vi.hoisted(() => ({
   listener: null as null | ((u: unknown) => void),
-  signIn: vi.fn(),
+  signIn: (async () => {}) as (...a: unknown[]) => Promise<void>,
 }))
 
 vi.mock('../firebase', () => ({ auth: {}, db: {} }))
@@ -15,7 +15,7 @@ vi.mock('firebase/auth', () => ({
     cb(null)
     return () => {}
   },
-  signInWithEmailAndPassword: h.signIn,
+  signInWithEmailAndPassword: (...a: unknown[]) => h.signIn(...a),
   signOut: vi.fn(),
 }))
 
@@ -27,7 +27,6 @@ function apri(percorso: string) {
   )
 }
 
-beforeEach(() => h.signIn.mockReset())
 
 it('senza utente /ordini porta al login', async () => {
   apri('/ordini')
@@ -35,7 +34,9 @@ it('senza utente /ordini porta al login', async () => {
 })
 
 it('credenziali errate mostrano il messaggio', async () => {
-  h.signIn.mockImplementation(() => Promise.reject(new Error('auth/invalid-credential')))
+  h.signIn = async () => {
+    throw new Error('auth/invalid-credential')
+  }
   apri('/login')
   await userEvent.type(screen.getByLabelText('Email'), 'a@b.it')
   await userEvent.type(screen.getByLabelText('Password'), 'sbagliata')
@@ -44,9 +45,9 @@ it('credenziali errate mostrano il messaggio', async () => {
 })
 
 it('login riuscito porta agli ordini', async () => {
-  h.signIn.mockImplementation(async () => {
+  h.signIn = async () => {
     h.listener?.({ email: 'a@b.it' })
-  })
+  }
   apri('/login')
   await userEvent.type(screen.getByLabelText('Email'), 'a@b.it')
   await userEvent.type(screen.getByLabelText('Password'), 'giusta')

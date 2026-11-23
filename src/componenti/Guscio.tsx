@@ -7,6 +7,7 @@ const VOCI = [
   { a: '/incassi', t: 'Incassi' },
   { a: '/spese', t: 'Spese' },
   { a: '/listino', t: 'Listino' },
+  { a: '/account', t: 'Account' },
 ]
 
 export function Guscio() {

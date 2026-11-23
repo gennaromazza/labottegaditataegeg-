@@ -1,11 +1,20 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, type User } from 'firebase/auth'
+import {
+  EmailAuthProvider,
+  onAuthStateChanged,
+  reauthenticateWithCredential,
+  signInWithEmailAndPassword,
+  signOut,
+  updatePassword,
+  type User,
+} from 'firebase/auth'
 import { auth } from '../firebase'
 
 interface Valore {
   utente: User | null
   caricamento: boolean
   accedi(email: string, password: string): Promise<void>
+  cambiaPassword(attuale: string, nuova: string): Promise<void>
   esci(): Promise<void>
 }
 
@@ -29,6 +38,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     caricamento,
     accedi: async (email, password) => {
       await signInWithEmailAndPassword(auth, email.trim(), password)
+    },
+    // Firebase chiede di riconfermare la password attuale prima di cambiarla
+    cambiaPassword: async (attuale, nuova) => {
+      const u = auth.currentUser
+      if (!u?.email) throw new Error('Nessun utente collegato')
+      await reauthenticateWithCredential(u, EmailAuthProvider.credential(u.email, attuale))
+      await updatePassword(u, nuova)
     },
     esci: () => signOut(auth),
   }

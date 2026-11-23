@@ -7,11 +7,13 @@
 .menu a { flex: 1; text-align: center; padding: .9rem .25rem; color: var(--testo-tenue); text-decoration: none; font-weight: 600; }
 .menu a.attiva { color: var(--arancio); border-top: 3px solid var(--arancio); }
 .menu-logo { display: none; }
-.menu .esci { min-height: 36px; margin: 0 .5rem; padding: .25rem .6rem; font-size: .85rem; }
+.menu a { font-size: .8rem; padding: .9rem .1rem; }
+.menu .esci { display: none; } /* su telefono "Esci" è nella pagina Account */
 @media (min-width: 800px) {
   .menu { top: 0; bottom: auto; right: auto; width: 200px; flex-direction: column; align-items: stretch;
     border-top: 0; border-right: 1px solid var(--bordo); padding: 1rem .5rem; height: 100dvh; }
-  .menu a { text-align: left; padding: .7rem .9rem; border-radius: 10px; flex: none; }
+  .menu a { text-align: left; padding: .7rem .9rem; border-radius: 10px; flex: none; font-size: 1rem; }
+  .menu .esci { display: block; min-height: 36px; padding: .25rem .6rem; font-size: .85rem; }
   .menu a.attiva { border-top: 0; background: #f3e2cb; }
   .menu-logo { display: block; width: 100%; margin-bottom: 1rem; }
   .menu .esci { margin: auto 0 0; }

@@ -2,31 +2,61 @@
 .login form { text-align: left; }
 
 .guscio { min-height: 100dvh; }
-.menu { position: fixed; bottom: 0; left: 0; right: 0; z-index: 10; display: flex; align-items: center;
-  background: var(--carta); border-top: 1px solid var(--bordo); }
-.menu a { flex: 1; text-align: center; padding: .9rem .25rem; color: var(--testo-tenue); text-decoration: none; font-weight: 600; }
-.menu a.attiva { color: var(--arancio); border-top: 3px solid var(--arancio); }
+
+/* Menu: su telefono barra in basso con icone e testo, su schermi larghi barra laterale */
+.menu {
+  position: fixed; inset: auto 0 0 0; z-index: 10; display: flex; align-items: stretch;
+  background: var(--carta); border-top: 1px solid var(--bordo); box-shadow: 0 -2px 10px #0000001a;
+  padding-bottom: env(safe-area-inset-bottom);
+}
+.menu a {
+  flex: 1 1 0; min-width: 0; min-height: 60px; display: flex; flex-direction: column; align-items: center;
+  justify-content: center; gap: 3px; padding: 6px 2px; color: var(--testo-tenue); text-decoration: none;
+  font-size: .68rem; font-weight: 600; line-height: 1.1; -webkit-tap-highlight-color: transparent;
+}
+.menu a svg { width: 24px; height: 24px; flex: none; }
+.menu a span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.menu a:active { background: #f3e2cb; }
+.menu a.attiva { color: var(--arancio); box-shadow: inset 0 3px 0 var(--arancio); background: #fbf0e0; }
+.menu a:focus-visible, .menu .esci:focus-visible { outline: 3px solid var(--arancio); outline-offset: -3px; }
 .menu-logo { display: none; }
-.menu a { font-size: .8rem; padding: .9rem .1rem; }
 .menu .esci { display: none; } /* su telefono "Esci" è nella pagina Account */
+
+/* telefoni molto stretti */
+@media (max-width: 340px) {
+  .menu a { font-size: .6rem; }
+  .menu a svg { width: 20px; height: 20px; }
+}
+
 @media (min-width: 800px) {
-  .menu { top: 0; bottom: auto; right: auto; width: 200px; flex-direction: column; align-items: stretch;
-    border-top: 0; border-right: 1px solid var(--bordo); padding: 1rem .5rem; height: 100dvh; }
-  .menu a { text-align: left; padding: .7rem .9rem; border-radius: 10px; flex: none; font-size: 1rem; }
-  .menu .esci { display: block; min-height: 36px; padding: .25rem .6rem; font-size: .85rem; }
-  .menu a.attiva { border-top: 0; background: #f3e2cb; }
+  .menu {
+    inset: 0 auto 0 0; width: 200px; height: 100dvh; flex-direction: column; align-items: stretch; gap: .15rem;
+    border-top: 0; border-right: 1px solid var(--bordo); box-shadow: none; padding: 1rem .5rem;
+  }
+  .menu a {
+    flex: none; flex-direction: row; justify-content: flex-start; gap: .7rem; min-height: 44px; padding: .55rem .9rem;
+    border-radius: 10px; font-size: 1rem;
+  }
+  .menu a.attiva { box-shadow: none; background: #f3e2cb; }
   .menu-logo { display: block; width: 100%; margin-bottom: 1rem; }
-  .menu .esci { margin: auto 0 0; }
+  .menu .esci { display: block; margin: auto 0 0; min-height: 36px; padding: .25rem .6rem; font-size: .85rem; }
   .contenuto { margin-left: 200px; }
 }
+
 .riga { display: flex; justify-content: space-between; gap: .5rem; align-items: baseline; flex-wrap: wrap; }
 .badge { display: inline-block; padding: .1rem .55rem; border-radius: 999px; font-size: .8rem; font-weight: 700;
   background: #efe3d0; color: var(--legno); }
 .badge.ok { background: #d9efe0; color: var(--ok); }
 .badge.avviso { background: #fbe0dd; color: var(--attenzione); }
-.fab { position: fixed; right: 1rem; bottom: 4.6rem; z-index: 5; box-shadow: 0 4px 12px #0003; border-radius: 999px;
-  padding: .8rem 1.3rem; text-decoration: none; }
+
+/* il pulsante "Nuovo ordine" sta sopra il menu in basso, bordo del telefono compreso */
+.fab { position: fixed; right: 1rem; bottom: calc(60px + env(safe-area-inset-bottom) + 1rem); z-index: 5;
+  box-shadow: 0 4px 12px #0003; border-radius: 999px; padding: .8rem 1.3rem; text-decoration: none; }
 @media (min-width: 800px) { .fab { bottom: 1.5rem; } }
+/* il contenuto non finisce mai sotto il menu */
+.pagina { padding-bottom: calc(7rem + env(safe-area-inset-bottom)); }
+@media (min-width: 800px) { .pagina { padding-bottom: 6rem; } }
+
 .griglia2 { display: grid; grid-template-columns: 1fr 1fr; gap: .75rem; }
 .barra { height: 10px; border-radius: 6px; background: var(--arancio-chiaro); }
 a.bottone { display: inline-block; text-decoration: none; text-align: center; line-height: 28px; }

@@ -65,6 +65,23 @@
 a.bottone { display: inline-block; text-decoration: none; text-align: center; line-height: 28px; }
 .link-scheda { color: inherit; text-decoration: none; display: block; }
 .azioni { display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0; align-items: center; }
+/* sezioni che si aprono e si chiudono */
+.sezione { margin: .5rem 0; border-bottom: 1px solid var(--bordo); }
+.sezione-titolo { margin: 0; font-size: 1.1rem; }
+.sezione-titolo button { width: 100%; display: flex; justify-content: space-between; align-items: center; text-align: left;
+  min-height: 52px; background: transparent; color: var(--legno); border-radius: 0; padding: .5rem .25rem; font-size: 1.1rem; }
+.sezione-titolo button:active { background: #f3e2cb; }
+.sezione-freccia { font-size: .9rem; margin-left: .5rem; }
+/* percorso (briciole) */
+.briciole ol { list-style: none; display: flex; flex-wrap: wrap; gap: .25rem; margin: 0 0 .5rem; padding: 0; font-size: .9rem; }
+.briciole li + li::before { content: '›'; margin-right: .25rem; color: var(--testo-tenue); }
+.briciole a { color: var(--arancio); font-weight: 600; text-decoration: none; padding: .35rem .1rem; display: inline-block; }
+.briciole li[aria-current] span { color: var(--testo-tenue); }
+/* scorciatoie: righe di collegamenti rapidi */
+.scorciatoie { display: flex; flex-wrap: wrap; gap: .4rem; margin: .5rem 0 .75rem; }
+.scorciatoie a { display: inline-flex; align-items: center; min-height: 44px; padding: .4rem .9rem; border: 2px solid var(--bordo);
+  border-radius: 999px; color: var(--legno); text-decoration: none; font-weight: 600; font-size: .9rem; background: var(--carta); }
+.scorciatoie a:active { background: #f3e2cb; }
 .nota { color: var(--testo-tenue); font-size: .85rem; margin: .4rem 0 0; }
 .giacenza { font-size: 1.6rem; font-weight: 700; margin: .2rem 0; color: var(--legno); }
 .movimento { margin: .45rem 0; }

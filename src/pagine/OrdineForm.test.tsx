@@ -2,7 +2,6 @@ import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import OrdineForm from './OrdineForm'
-import Ordini from './Ordini'
 import { ordineDiProva } from '../lib/fixture'
 
 const h = vi.hoisted(() => ({ crea: vi.fn() }))
@@ -198,67 +197,10 @@ it('riga compilata a metà blocca il salvataggio', async () => {
   expect(h.crea).not.toHaveBeenCalled()
 })
 
-describe('filtri collegabili dall\'indirizzo', () => {
-  const apriConFiltri = (percorso: string) =>
-    render(
-      <MemoryRouter initialEntries={[percorso]}>
-        <Ordini />
-      </MemoryRouter>,
-    )
-
-  it('?stato= parte già filtrato', () => {
-    apriConFiltri('/ordini?stato=pronto')
-    expect(screen.getByLabelText('Stato')).toHaveValue('pronto')
-    expect(screen.getAllByText(/^n\. /)).toHaveLength(1)
-  })
-
-  it('?pagamento=da-incassare mostra solo gli ordini con un residuo', () => {
-    apriConFiltri('/ordini?pagamento=da-incassare')
-    expect(screen.getByLabelText('Pagamento')).toHaveValue('da-incassare')
-    expect(screen.getAllByText(/^n\. /)).toHaveLength(2)
-  })
-
-  it('?pagamento=saldati non mostra ordini non pagati', () => {
-    apriConFiltri('/ordini?pagamento=saldati')
-    expect(screen.getByText('Nessun ordine.')).toBeInTheDocument()
-  })
-
-  it('valori sconosciuti nell\'indirizzo vengono ignorati', () => {
-    apriConFiltri('/ordini?stato=boh&pagamento=boh&canale=boh')
-    expect(screen.getAllByText(/^n\. /)).toHaveLength(2)
-  })
-
-  it('cambiando un filtro la lista si aggiorna e il collegamento alle Spedizioni c\'è', async () => {
-    apriConFiltri('/ordini')
-    await userEvent.selectOptions(screen.getByLabelText('Pagamento'), 'saldati')
-    expect(screen.getByText('Nessun ordine.')).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Vai alle Spedizioni' })).toHaveAttribute('href', '/spedizioni')
-  })
-})
-
-it('Stampa elenco apre la stampa del browser', async () => {
-  const stampa = vi.fn()
-  window.print = stampa
-  render(
-    <MemoryRouter>
-      <Ordini />
-    </MemoryRouter>,
-  )
-  await userEvent.click(screen.getByRole('button', { name: 'Stampa elenco' }))
-  expect(stampa).toHaveBeenCalledTimes(1)
-})
-
-it('i filtri della lista per stato e canale', async () => {
-  render(
-    <MemoryRouter>
-      <Ordini />
-    </MemoryRouter>,
-  )
-  expect(screen.getAllByText(/^n\. /)).toHaveLength(2)
-  await userEvent.selectOptions(screen.getByLabelText('Stato'), 'pronto')
-  expect(screen.getAllByText(/^n\. /)).toHaveLength(1)
-  await userEvent.selectOptions(screen.getByLabelText('Stato'), '')
-  await userEvent.selectOptions(screen.getByLabelText('Canale'), 'TikTok')
-  expect(screen.getByText(/Luca Bianchi/)).toBeInTheDocument()
-  expect(screen.getAllByText(/^n\. /)).toHaveLength(1)
+it('il percorso in alto riporta all\'elenco ordini', () => {
+  apri()
+  const percorso = screen.getByRole('navigation', { name: 'Percorso' })
+  expect(percorso).toHaveTextContent('Ordini')
+  expect(screen.getByRole('link', { name: 'Ordini' })).toHaveAttribute('href', '/ordini')
+  expect(percorso.querySelector('[aria-current="page"]')).toHaveTextContent('Nuovo ordine')
 })

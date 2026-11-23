@@ -1,8 +1,11 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { aggiornaCliente, ascoltaCliente, eliminaCliente } from '../data/clienti'
 import { ascoltaOrdini } from '../data/ordini'
+import { Briciole } from '../componenti/Briciole'
 import { OrdineCard } from '../componenti/OrdineCard'
+import { MostraAltri, usePaginazione } from '../componenti/Paginazione'
+import { Sezione } from '../componenti/Sezione'
 import { formatEuro, residuoCent, versatoCent } from '../lib/calcoli'
 import { caricaComuni, cercaPerCap, cercaPerNome, type Comune } from '../lib/comuni'
 import type { Cliente, Ordine, Spedizione } from '../lib/tipi'
@@ -99,7 +102,6 @@ function FormSpedizione({ cliente }: { cliente: Cliente }) {
 
   return (
     <form className="scheda" onSubmit={(e) => void salva(e)} aria-label="Dati di spedizione">
-      <h2>Dati di spedizione</h2>
       <label htmlFor="sp-dest">Destinatario (se diverso dal cliente)</label>
       <input id="sp-dest" value={destinatario} onChange={(e) => setDestinatario(e.target.value)} />
       <label htmlFor="sp-ind">Indirizzo</label>
@@ -173,7 +175,6 @@ function FormAnagrafica({ cliente }: { cliente: Cliente }) {
 
   return (
     <form className="scheda" onSubmit={(e) => void salva(e)} aria-label="Anagrafica">
-      <h2>Anagrafica</h2>
       <label htmlFor="an-nome">Nome</label>
       <input id="an-nome" value={nome} onChange={(e) => setNome(e.target.value)} />
       <label htmlFor="an-tel">Telefono</label>
@@ -193,9 +194,13 @@ export default function ClienteScheda() {
   const [ordini, setOrdini] = useState<Ordine[]>([])
   const [erroreElimina, setErroreElimina] = useState('')
   const navigate = useNavigate()
+  const [params] = useSearchParams()
 
   useEffect(() => ascoltaCliente(id, setCliente), [id])
   useEffect(() => ascoltaOrdini(setOrdini), [])
+
+  const suoiOrdinati = ordini.filter((o) => o.clienteId === id).sort((a, b) => b.numero - a.numero)
+  const { visibili: pagina, resto, mostraAltri } = usePaginazione(suoiOrdinati, 10, id)
 
   if (cliente === undefined) return <main className="pagina">Caricamento…</main>
   if (cliente === null) return <main className="pagina"><p>Cliente non trovato.</p><Link to="/clienti">Torna ai clienti</Link></main>
@@ -220,28 +225,39 @@ export default function ClienteScheda() {
     }
   }
 
+  const apri = params.get('apri')
+  const filtroCliente = `/ordini?cliente=${encodeURIComponent(cliente.id)}`
+
   return (
     <main className="pagina">
-      <p><Link to="/clienti">← Clienti</Link></p>
+      <Briciole voci={[{ testo: 'Clienti', a: '/clienti' }, { testo: cliente.nome }]} />
       <h1>{cliente.nome}</h1>
       <p>{cliente.telefono ?? 'Nessun telefono'}</p>
 
-      <section aria-label="Ordini del cliente">
-        <div className="riga">
-          <h2>Ordini ({suoi.length})</h2>
-          <Link to={`/ordini/nuovo?cliente=${encodeURIComponent(cliente.id)}`} className="bottone">+ Nuovo ordine</Link>
-        </div>
+      <div className="scorciatoie no-stampa" aria-label="Scorciatoie">
+        <Link to={`/ordini/nuovo?cliente=${encodeURIComponent(cliente.id)}`}>+ Nuovo ordine</Link>
+        {suoi.length > 0 && <Link to={filtroCliente}>Tutti i suoi ordini ({suoi.length})</Link>}
+        {daIncassare > 0 && <Link to={`${filtroCliente}&pagamento=da-incassare`}>Da incassare: {formatEuro(daIncassare)}</Link>}
+      </div>
+
+      <Sezione titolo="Ordini" conteggio={suoi.length} aperta>
         {suoi.length > 0 && (
           <p>
             Aperti: <strong>{aperti}</strong> · Incassato: <strong>{formatEuro(incassato)}</strong> · Da incassare: <strong>{formatEuro(daIncassare)}</strong>
           </p>
         )}
         {suoi.length === 0 && <p>Nessun ordine per questo cliente.</p>}
-        {suoi.map((o) => <OrdineCard key={o.id} ordine={o} mostraCliente={false} />)}
-      </section>
+        {pagina.map((o) => <OrdineCard key={o.id} ordine={o} mostraCliente={false} />)}
+        <MostraAltri resto={resto} passo={10} onClick={mostraAltri} />
+      </Sezione>
 
-      <FormAnagrafica key={`a-${cliente.id}`} cliente={cliente} />
-      <FormSpedizione key={`s-${cliente.id}`} cliente={cliente} />
+      <Sezione titolo="Anagrafica" aperta={apri === 'anagrafica'}>
+        <FormAnagrafica key={`a-${cliente.id}`} cliente={cliente} />
+      </Sezione>
+
+      <Sezione titolo={`Dati di spedizione${cliente.spedizione ? '' : ' (da compilare)'}`} aperta={apri === 'spedizione'}>
+        <FormSpedizione key={`s-${cliente.id}`} cliente={cliente} />
+      </Sezione>
 
       {erroreElimina && <p className="errore" role="alert">{erroreElimina}</p>}
       <p className="no-stampa">

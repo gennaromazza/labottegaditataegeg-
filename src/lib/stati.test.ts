@@ -4,6 +4,7 @@ import {
   prossimaAzione,
   puoCambiareStato,
   rimozionePermessa,
+  statiSceglibili,
   statoDopoNuovoPagamento,
   statoDopoRimozionePagamento,
   statoIniziale,
@@ -29,6 +30,21 @@ describe('normalizzaStato (ordini creati prima del nuovo flusso)', () => {
   it('uno stato sconosciuto non rompe nulla', () => expect(normalizzaStato('boh', 0)).toBe('in attesa acconto'))
 })
 
+describe('normalizzaStato: "in attesa" e "confermato" seguono i pagamenti da soli', () => {
+  it('"in attesa di acconto" con un acconto già registrato si legge come confermato', () => {
+    expect(normalizzaStato('in attesa acconto', 500)).toBe('confermato')
+  })
+  it('"confermato" senza nessun pagamento si legge come in attesa di acconto', () => {
+    expect(normalizzaStato('confermato', 0)).toBe('in attesa acconto')
+  })
+  it('gli altri stati non vengono toccati dai pagamenti', () => {
+    for (const s of ['in preparazione', 'pronto', 'spedito', 'consegnato', 'annullato']) {
+      expect(normalizzaStato(s, 0)).toBe(s)
+      expect(normalizzaStato(s, 500)).toBe(s)
+    }
+  })
+})
+
 describe('puoCambiareStato: senza acconto non si procede', () => {
   it.each(['confermato', 'in preparazione', 'pronto', 'spedito', 'consegnato'] as const)('%s senza pagamenti è bloccato', (s) => {
     const r = puoCambiareStato(ordineDiProva(), s)
@@ -38,9 +54,28 @@ describe('puoCambiareStato: senza acconto non si procede', () => {
   it.each(['confermato', 'in preparazione', 'pronto', 'spedito', 'consegnato'] as const)('%s con un acconto è permesso', (s) => {
     expect(puoCambiareStato(ordineDiProva({ pagamenti: [pagato] }), s).ok).toBe(true)
   })
-  it('annullare e tornare in attesa si può sempre', () => {
+  it('annullare si può sempre', () => {
     expect(puoCambiareStato(ordineDiProva(), 'annullato').ok).toBe(true)
-    expect(puoCambiareStato(ordineDiProva({ pagamenti: [pagato], stato: 'pronto' }), 'in attesa acconto').ok).toBe(true)
+    expect(puoCambiareStato(ordineDiProva({ pagamenti: [pagato], stato: 'pronto' }), 'annullato').ok).toBe(true)
+  })
+  it('"in attesa di acconto" non si sceglie a mano se c\'è già un acconto: è automatico', () => {
+    const r = puoCambiareStato(ordineDiProva({ pagamenti: [pagato], stato: 'pronto' }), 'in attesa acconto')
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.motivo).toMatch(/automatico/)
+  })
+  it('senza acconti "in attesa" è lo stato naturale', () => {
+    expect(puoCambiareStato(ordineDiProva(), 'in attesa acconto').ok).toBe(true)
+  })
+})
+
+describe('statiSceglibili (menu dello stato)', () => {
+  it('con un acconto "In attesa di acconto" non compare', () => {
+    const s = statiSceglibili(ordineDiProva({ stato: 'confermato', pagamenti: [pagato] }))
+    expect(s).not.toContain('in attesa acconto')
+    expect(s).toEqual(['confermato', 'in preparazione', 'pronto', 'spedito', 'consegnato', 'annullato'])
+  })
+  it('se l\'ordine è in attesa lo mostra (è lo stato attuale), così il menu non resta vuoto', () => {
+    expect(statiSceglibili(ordineDiProva())).toContain('in attesa acconto')
   })
 })
 
@@ -54,22 +89,25 @@ describe('stato dopo un pagamento', () => {
     expect(statoDopoNuovoPagamento('annullato', 500)).toBeNull()
   })
   it('un pagamento nullo non conferma', () => expect(statoDopoNuovoPagamento('in attesa acconto', 0)).toBeNull())
-  it('togliere l\'unico acconto di un ordine solo confermato lo rimette in attesa', () => {
-    expect(statoDopoRimozionePagamento('confermato', 0)).toBe('in attesa acconto')
+  it.each(['confermato', 'in preparazione', 'pronto', 'in lavorazione'])('togliere l\'unico acconto di un ordine %s lo rimette in attesa', (s) => {
+    expect(statoDopoRimozionePagamento(s, 0)).toBe('in attesa acconto')
   })
-  it('se resta del versato, o se l\'ordine è più avanti, lo stato non cambia (si avvisa e basta)', () => {
+  it('se resta del versato lo stato non cambia', () => {
     expect(statoDopoRimozionePagamento('confermato', 200)).toBeNull()
-    expect(statoDopoRimozionePagamento('in preparazione', 0)).toBeNull()
+    expect(statoDopoRimozionePagamento('pronto', 200)).toBeNull()
+  })
+  it('un ordine già partito, annullato o in attesa non cambia stato', () => {
+    for (const s of ['spedito', 'consegnato', 'annullato', 'in attesa acconto']) expect(statoDopoRimozionePagamento(s, 0)).toBeNull()
   })
 })
 
-describe('rimozionePermessa: non si toglie l\'unico acconto di un ordine già avanti', () => {
-  it.each(['in preparazione', 'pronto', 'spedito', 'consegnato', 'in lavorazione'])('%s con versato 0: bloccato', (s) => {
+describe('rimozionePermessa: l\'unico acconto di un ordine già partito non si toglie', () => {
+  it.each(['spedito', 'consegnato'])('%s con versato 0: bloccato, con il consiglio di annullare', (s) => {
     const r = rimozionePermessa(s, 0)
     expect(r.ok).toBe(false)
-    if (!r.ok) expect(r.motivo).toMatch(/cambia lo stato/)
+    if (!r.ok) expect(r.motivo).toMatch(/già partito/)
   })
-  it.each(['in attesa acconto', 'confermato', 'annullato', 'da fare'])('%s: permesso', (s) => {
+  it.each(['in attesa acconto', 'confermato', 'in preparazione', 'pronto', 'in lavorazione', 'annullato', 'da fare'])('%s: permesso (lo stato torna in attesa da solo)', (s) => {
     expect(rimozionePermessa(s, 0).ok).toBe(true)
   })
   it('se resta del versato si può sempre', () => {
@@ -80,8 +118,10 @@ describe('rimozionePermessa: non si toglie l\'unico acconto di un ordine già av
 describe('prossimaAzione', () => {
   const o = (stato: StatoOrdine, pag = true) =>
     ordineDiProva({ stato, pagamenti: pag ? [pagato] : [] })
-  it('in attesa senza pagamenti: nessuna azione', () => expect(prossimaAzione(o('in attesa acconto', false))).toBeNull())
-  it('in attesa ma con acconto: conferma', () => expect(prossimaAzione(o('in attesa acconto'))).toEqual({ stato: 'confermato', etichetta: 'Conferma ordine' }))
+  it('in attesa di acconto: nessun passo manuale, si sblocca da solo con il pagamento', () => {
+    expect(prossimaAzione(o('in attesa acconto', false))).toBeNull()
+    expect(prossimaAzione(o('in attesa acconto'))).toBeNull()
+  })
   it('confermato → preparazione', () => expect(prossimaAzione(o('confermato'))?.stato).toBe('in preparazione'))
   it('preparazione → pronto', () => expect(prossimaAzione(o('in preparazione'))?.stato).toBe('pronto'))
   it('pronto → spedito', () => expect(prossimaAzione(o('pronto'))).toEqual({ stato: 'spedito', etichetta: 'Segna come spedito' }))

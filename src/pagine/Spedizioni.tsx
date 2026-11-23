@@ -3,24 +3,53 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { AvanzamentoOrdine } from '../componenti/AvanzamentoOrdine'
 import { BadgePagamento } from '../componenti/BadgePagamento'
 import { BadgeStato } from '../componenti/BadgeStato'
+import { MostraAltri, usePaginazione } from '../componenti/Paginazione'
+import { Sezione } from '../componenti/Sezione'
 import { ascoltaClienti } from '../data/clienti'
-import { ascoltaOrdini } from '../data/ordini'
+import { aggiornaOrdine, ascoltaOrdini } from '../data/ordini'
 import { formatData } from '../lib/calcoli'
+import { prossimaAzione } from '../lib/stati'
 import type { Cliente, Ordine, StatoOrdine } from '../lib/tipi'
 import { testoIndirizzo } from '../lib/whatsapp'
 
 type Vista = 'da-lavorare' | 'spediti' | 'attesa' | 'consegnati'
 const VISTE: Vista[] = ['da-lavorare', 'spediti', 'attesa', 'consegnati']
 
+/** Fino a quanti ordini nella vista le schede si mostrano già aperte; con più ordini restano compatte. */
+const SOGLIA_APERTE = 3
+
 const perConsegna = (a: Ordine, b: Ordine) =>
   (a.dataConsegna ?? '9999-12-31').localeCompare(b.dataConsegna ?? '9999-12-31') || a.numero - b.numero
 
-function SchedaSpedizione({ ordine: o, cliente }: { ordine: Ordine; cliente?: Cliente }) {
+/** Il passo successivo con un tocco, per le schede chiuse (solo dove non serve scrivere altro). */
+function AzioneRapida({ ordine }: { ordine: Ordine }) {
+  const [errore, setErrore] = useState('')
+  const azione = prossimaAzione(ordine)
+  if (!azione || (ordine.stato !== 'confermato' && ordine.stato !== 'in preparazione')) return null
+  return (
+    <>
+      <button
+        type="button"
+        onClick={() => {
+          setErrore('')
+          aggiornaOrdine(ordine.id, { stato: azione.stato }).catch(() => setErrore('Non sono riuscito a salvare. Controlla la connessione e riprova.'))
+        }}
+      >
+        {azione.etichetta}
+      </button>
+      {errore && <span className="errore" role="alert">{errore}</span>}
+    </>
+  )
+}
+
+function SchedaSpedizione({ ordine: o, cliente, apertaDiDefault }: { ordine: Ordine; cliente?: Cliente; apertaDiDefault: boolean }) {
+  const [aperta, setAperta] = useState(apertaDiDefault)
   // nome e telefono dell'ordine sono copie: vale la scheda cliente, se c'è
   const vivo: Ordine = { ...o, clienteNome: cliente?.nome || o.clienteNome, clienteTelefono: cliente?.telefono || o.clienteTelefono }
   const indirizzo = cliente?.spedizione
+  const pannello = `scheda-sped-${o.id}`
   return (
-    <article className="scheda">
+    <article className="scheda" aria-label={`Ordine ${o.numero}`}>
       <div className="riga">
         <strong>n. {o.numero} · {vivo.clienteNome}</strong>
         <BadgeStato stato={o.stato} />
@@ -29,38 +58,61 @@ function SchedaSpedizione({ ordine: o, cliente }: { ordine: Ordine; cliente?: Cl
         <span>{o.dataConsegna ? `Consegna entro ${formatData(o.dataConsegna)}` : 'Nessuna data di consegna'}</span>
         <BadgePagamento ordine={o} />
       </div>
-      <ul style={{ margin: '.5rem 0', paddingLeft: '1.1rem' }}>
-        {o.righe.map((r, i) => (
-          <li key={i}>{r.quantita} × {r.descrizione}{r.testoPersonalizzato ? ` (${r.testoPersonalizzato})` : ''}</li>
-        ))}
-      </ul>
       <p>
         {indirizzo ? (
           <>Spedire a: <strong>{testoIndirizzo(indirizzo)}</strong></>
         ) : (
-          <>Indirizzo mancante. <Link to={`/clienti/${o.clienteId}`}>Aggiungilo nella scheda cliente</Link></>
+          <>Indirizzo mancante. <Link to={`/clienti/${o.clienteId}?apri=spedizione`}>Aggiungilo nella scheda cliente</Link></>
         )}
       </p>
-      {o.stato === 'in attesa acconto' ? (
-        <>
-          <p className="avviso" role="status">In attesa di acconto: finché non arriva, non si procede.</p>
-          <Link to={`/ordini/${o.id}`} className="bottone">Registra l&apos;acconto</Link>
-        </>
-      ) : (
-        <AvanzamentoOrdine key={o.id} ordine={vivo} indirizzo={indirizzo} />
+      <div className="azioni">
+        <button type="button" className="secondario" aria-expanded={aperta} aria-controls={pannello} onClick={() => setAperta(!aperta)}>
+          {aperta ? 'Chiudi' : 'Apri'} <span className="solo-lettura">ordine {o.numero}</span>
+        </button>
+        {!aperta && <AzioneRapida ordine={o} />}
+      </div>
+      {aperta && (
+        <div id={pannello}>
+          <ul style={{ margin: '.5rem 0', paddingLeft: '1.1rem' }}>
+            {o.righe.map((r, i) => (
+              <li key={i}>{r.quantita} × {r.descrizione}{r.testoPersonalizzato ? ` (${r.testoPersonalizzato})` : ''}</li>
+            ))}
+          </ul>
+          {o.stato === 'in attesa acconto' ? (
+            <>
+              <p className="avviso" role="status">In attesa di acconto: finché non arriva, non si procede.</p>
+              <Link to={`/ordini/${o.id}`} className="bottone">Registra l&apos;acconto</Link>
+            </>
+          ) : (
+            <AvanzamentoOrdine key={o.id} ordine={vivo} indirizzo={indirizzo} />
+          )}
+          <p><Link to={`/ordini/${o.id}`}>Apri la pagina dell&apos;ordine</Link></p>
+        </div>
       )}
-      <p><Link to={`/ordini/${o.id}`}>Apri l&apos;ordine</Link></p>
     </article>
   )
 }
 
-function Gruppo({ titolo, ordini, clienti }: { titolo: string; ordini: Ordine[]; clienti: Map<string, Cliente> }) {
+function Gruppo({
+  titolo,
+  ordini,
+  clienti,
+  aperto,
+  schedeAperte,
+}: {
+  titolo: string
+  ordini: Ordine[]
+  clienti: Map<string, Cliente>
+  aperto: boolean
+  schedeAperte: boolean
+}) {
+  const { visibili, resto, mostraAltri } = usePaginazione(ordini, 10, titolo)
   if (ordini.length === 0) return null
   return (
-    <section aria-label={titolo}>
-      <h2>{titolo} ({ordini.length})</h2>
-      {ordini.map((o) => <SchedaSpedizione key={o.id} ordine={o} cliente={clienti.get(o.clienteId)} />)}
-    </section>
+    <Sezione titolo={titolo} conteggio={ordini.length} aperta={aperto} ricorda={`spedizioni:${titolo}`}>
+      {visibili.map((o) => <SchedaSpedizione key={o.id} ordine={o} cliente={clienti.get(o.clienteId)} apertaDiDefault={schedeAperte} />)}
+      <MostraAltri resto={resto} passo={10} onClick={mostraAltri} />
+    </Sezione>
   )
 }
 
@@ -104,6 +156,30 @@ export function VistaSpedizioni({ ordini, clienti }: { ordini: Ordine[]; clienti
     consegnati: 'Consegnati',
   }
 
+  // con pochi ordini tutto è aperto; con tanti restano aperti solo il primo gruppo e le schede chiuse, per non scorrere all'infinito
+  const gruppi: { titolo: string; ordini: Ordine[] }[] =
+    vista === 'da-lavorare'
+      ? [
+          { titolo: 'Pronti da spedire', ordini: pronti },
+          { titolo: 'In preparazione', ordini: inPreparazione },
+          { titolo: 'Da preparare (acconto ricevuto)', ordini: daPreparare },
+        ]
+      : vista === 'spediti'
+        ? [{ titolo: 'Spediti, in attesa di consegna', ordini: spediti }]
+        : vista === 'attesa'
+          ? [{ titolo: 'In attesa di acconto', ordini: attesa }]
+          : [{ titolo: 'Ultimi consegnati', ordini: consegnati }]
+  const totaleVista = gruppi.reduce((s, g) => s + g.ordini.length, 0)
+  const pochi = totaleVista <= SOGLIA_APERTE
+  const primoNonVuoto = gruppi.find((g) => g.ordini.length > 0)?.titolo
+
+  const vuoto: Record<Vista, string> = {
+    'da-lavorare': 'Niente da lavorare. Quando arriva un acconto, l\'ordine compare qui.',
+    spediti: 'Nessun ordine spedito in attesa di consegna.',
+    attesa: 'Nessun ordine in attesa di acconto.',
+    consegnati: 'Nessun ordine consegnato.',
+  }
+
   return (
     <main className="pagina">
       <div className="riga no-stampa">
@@ -127,31 +203,19 @@ export function VistaSpedizioni({ ordini, clienti }: { ordini: Ordine[]; clienti
         ))}
       </div>
 
-      {vista === 'da-lavorare' && (
-        <>
-          {daLavorare === 0 && <p>Niente da lavorare. Quando arriva un acconto, l&apos;ordine compare qui.</p>}
-          <Gruppo titolo="Pronti da spedire" ordini={pronti} clienti={perId} />
-          <Gruppo titolo="In preparazione" ordini={inPreparazione} clienti={perId} />
-          <Gruppo titolo="Da preparare (acconto ricevuto)" ordini={daPreparare} clienti={perId} />
-        </>
-      )}
-      {vista === 'spediti' && (
-        <>
-          {spediti.length === 0 && <p>Nessun ordine spedito in attesa di consegna.</p>}
-          <Gruppo titolo="Spediti, in attesa di consegna" ordini={spediti} clienti={perId} />
-        </>
-      )}
-      {vista === 'attesa' && (
-        <>
-          {attesa.length === 0 && <p>Nessun ordine in attesa di acconto.</p>}
-          <Gruppo titolo="In attesa di acconto" ordini={attesa} clienti={perId} />
-        </>
-      )}
-      {vista === 'consegnati' && (
-        <>
-          {consegnati.length === 0 && <p>Nessun ordine consegnato.</p>}
-          <Gruppo titolo="Ultimi consegnati" ordini={consegnati} clienti={perId} />
-        </>
+      {totaleVista === 0 && <p>{vuoto[vista]}</p>}
+      {gruppi.map((g) => (
+        <Gruppo
+          key={g.titolo}
+          titolo={g.titolo}
+          ordini={g.ordini}
+          clienti={perId}
+          aperto={pochi || g.titolo === primoNonVuoto}
+          schedeAperte={pochi}
+        />
+      ))}
+      {totaleVista > 0 && (
+        <p className="no-stampa"><Link to="/ordini">Vedi tutti gli ordini</Link></p>
       )}
     </main>
   )

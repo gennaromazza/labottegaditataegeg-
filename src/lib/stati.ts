@@ -11,11 +11,19 @@ export function statoIniziale(versato: number): StatoOrdine {
   return versato > 0 ? 'confermato' : 'in attesa acconto'
 }
 
-/** Gli ordini creati con i vecchi stati ("da fare", "in lavorazione") si leggono con quelli nuovi. */
+/**
+ * Legge lo stato di un ordine. "In attesa di acconto" e "Confermato" seguono i pagamenti da soli:
+ * con un acconto registrato l'ordine è confermato, senza non lo è. Gli ordini creati con i vecchi
+ * stati ("da fare", "in lavorazione") si leggono con quelli nuovi.
+ */
 export function normalizzaStato(raw: string, versato: number): StatoOrdine {
-  if ((STATI as string[]).includes(raw)) return raw as StatoOrdine
-  if (raw === 'in lavorazione') return 'in preparazione'
-  return statoIniziale(versato)
+  let stato: StatoOrdine
+  if ((STATI as string[]).includes(raw)) stato = raw as StatoOrdine
+  else if (raw === 'in lavorazione') stato = 'in preparazione'
+  else stato = statoIniziale(versato)
+  if (stato === 'in attesa acconto' && versato > 0) return 'confermato'
+  if (stato === 'confermato' && versato <= 0) return 'in attesa acconto'
+  return stato
 }
 
 /** Dopo un nuovo pagamento: un ordine che aspettava l'acconto diventa confermato. null = lo stato resta com'è. */
@@ -24,23 +32,27 @@ export function statoDopoNuovoPagamento(statoAttuale: string, versatoOra: number
   return statoAttuale === 'in attesa acconto' || statoAttuale === 'da fare' ? 'confermato' : null
 }
 
-/** Dopo aver tolto un pagamento: se era l'unico e l'ordine era solo confermato, torna in attesa. */
+/** Stati in cui l'ordine non è ancora partito: lì lo stato segue i pagamenti. */
+const PRIMA_DELLA_SPEDIZIONE = ['confermato', 'in preparazione', 'in lavorazione', 'pronto']
+
+/** Dopo aver tolto un pagamento: se era l'unico e l'ordine non è ancora partito, torna in attesa di acconto da solo. */
 export function statoDopoRimozionePagamento(statoAttuale: string, versatoRimasto: number): StatoOrdine | null {
-  return versatoRimasto <= 0 && statoAttuale === 'confermato' ? 'in attesa acconto' : null
+  if (versatoRimasto > 0) return null
+  return PRIMA_DELLA_SPEDIZIONE.includes(statoAttuale) ? 'in attesa acconto' : null
 }
 
 /** Errore di una regola di lavoro (non un guasto): il messaggio si può mostrare così com'è. */
 export class ErroreRegola extends Error {}
 
-/** Togliere l'unico acconto da un ordine già avanti lo lascerebbe senza pagamenti: prima si cambia lo stato. */
+/** L'unico pagamento di un ordine già partito non si toglie: sarebbe un ordine spedito senza acconto. */
 export function rimozionePermessa(statoAttuale: string, versatoRimasto: number): { ok: true } | { ok: false; motivo: string } {
   if (versatoRimasto > 0) return { ok: true }
   const stato = normalizzaStato(statoAttuale, versatoRimasto)
-  if (RICHIEDONO_ACCONTO.has(stato) && stato !== 'confermato') {
+  if (stato === 'spedito' || stato === 'consegnato') {
     return {
       ok: false,
       motivo:
-        'Questo è l\'unico pagamento e l\'ordine è già avanti. Prima cambia lo stato (per esempio "In attesa di acconto" o "Annullato"), poi rimuovi il pagamento.',
+        'Questo è l\'unico pagamento e l\'ordine è già partito, quindi non si può togliere. Se è stato un errore, segna prima l\'ordine come "Annullato".',
     }
   }
   return { ok: true }
@@ -48,9 +60,19 @@ export function rimozionePermessa(statoAttuale: string, versatoRimasto: number):
 
 export type EsitoCambio = { ok: true } | { ok: false; motivo: string }
 
+export const MOTIVO_ATTESA_AUTOMATICA = 'Lo stato "In attesa di acconto" è automatico: finché c\'è un acconto registrato l\'ordine non resta in attesa.'
+
 export function puoCambiareStato(o: Ordine, nuovo: StatoOrdine): EsitoCambio {
-  if (RICHIEDONO_ACCONTO.has(nuovo) && versatoCent(o) <= 0) return { ok: false, motivo: MOTIVO_ACCONTO }
+  const versato = versatoCent(o)
+  if (RICHIEDONO_ACCONTO.has(nuovo) && versato <= 0) return { ok: false, motivo: MOTIVO_ACCONTO }
+  // "In attesa" non si sceglie a mano: la decide l'acconto
+  if (nuovo === 'in attesa acconto' && versato > 0) return { ok: false, motivo: MOTIVO_ATTESA_AUTOMATICA }
   return { ok: true }
+}
+
+/** Gli stati che si possono scegliere a mano nel menu: "In attesa di acconto" c'è solo se l'ordine è già lì (è automatico). */
+export function statiSceglibili(o: Ordine): StatoOrdine[] {
+  return STATI.filter((s) => s !== 'in attesa acconto' || o.stato === 'in attesa acconto')
 }
 
 export interface Azione {
@@ -60,8 +82,8 @@ export interface Azione {
 
 /** Il passo successivo del flusso, se c'è e se si può fare. */
 export function prossimaAzione(o: Ordine): Azione | null {
+  // "In attesa di acconto" non ha un passo manuale: si sblocca da solo quando si registra un pagamento
   const passo: Partial<Record<StatoOrdine, Azione>> = {
-    'in attesa acconto': { stato: 'confermato', etichetta: 'Conferma ordine' },
     confermato: { stato: 'in preparazione', etichetta: 'Inizia la preparazione' },
     'in preparazione': { stato: 'pronto', etichetta: 'Segna come pronto' },
     pronto: { stato: 'spedito', etichetta: 'Segna come spedito' },

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import OrdineDettaglio from './OrdineDettaglio'
@@ -13,6 +13,7 @@ const h = vi.hoisted(() => ({
   rimuovi: vi.fn(),
   elimina: vi.fn(),
   aggiorna: vi.fn(),
+  tutti: [] as Ordine[],
 }))
 
 vi.mock('../data/clienti', () => ({
@@ -23,6 +24,10 @@ vi.mock('../data/clienti', () => ({
 }))
 
 vi.mock('../data/ordini', () => ({
+  ascoltaOrdini: (cb: (o: Ordine[]) => void) => {
+    cb(h.tutti)
+    return () => {}
+  },
   ascoltaOrdine: (_id: string, cb: (o: Ordine) => void) => {
     h.cb = cb
     cb(h.ordine)
@@ -111,6 +116,7 @@ it('elimina l\'ordine solo dopo la conferma, avvisando dei pagamenti che sparisc
   apri()
   const conferma = vi.spyOn(window, 'confirm')
   conferma.mockReturnValueOnce(false)
+  await userEvent.click(screen.getByRole('button', { name: 'Altre azioni' }))
   await userEvent.click(screen.getByRole('button', { name: 'Elimina ordine' }))
   expect(h.elimina).not.toHaveBeenCalled()
   conferma.mockReturnValueOnce(true)
@@ -127,6 +133,7 @@ it('se l\'eliminazione fallisce si vede un errore e l\'ordine resta', async () =
   h.ordine = ordineDiProva()
   apri()
   vi.spyOn(window, 'confirm').mockReturnValue(true)
+  await userEvent.click(screen.getByRole('button', { name: 'Altre azioni' }))
   await userEvent.click(screen.getByRole('button', { name: 'Elimina ordine' }))
   expect(await screen.findByText(/Non sono riuscito a salvare/)).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Ordine n. 7' })).toBeInTheDocument()
@@ -184,13 +191,13 @@ describe('stati: senza acconto non si procede', () => {
     h.ordine = ordineDiProva({ stato: 'pronto', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
     apri()
     expect(screen.getByRole('button', { name: 'Segna come spedito' })).toBeInTheDocument()
-    expect(screen.getByRole('link', { name: 'Vai alle Spedizioni' })).toHaveAttribute('href', '/spedizioni')
+    expect(screen.getByRole('link', { name: 'Nelle Spedizioni' })).toHaveAttribute('href', '/spedizioni')
   })
 
   it('senza indirizzo di spedizione rimanda alla scheda cliente, con l\'indirizzo lo mostra', () => {
     h.ordine = ordineDiProva()
     apri()
-    expect(screen.getByRole('link', { name: /Aggiungilo nella scheda cliente/ })).toHaveAttribute('href', '/clienti/c1')
+    expect(screen.getByRole('link', { name: /Aggiungilo nella scheda cliente/ })).toHaveAttribute('href', '/clienti/c1?apri=spedizione')
   })
 })
 
@@ -223,7 +230,9 @@ it('mostra il link dell\'ordine e lo copia', async () => {
   const user = userEvent.setup()
   h.ordine = ordineDiProva()
   apri()
-  expect(screen.getByLabelText(/Link dell'ordine/)).toHaveValue(`${window.location.origin}/ordini/o1`)
+  expect(screen.queryByRole('button', { name: 'Copia link' })).not.toBeInTheDocument() // sezione chiusa all'inizio
+  await user.click(screen.getByRole('button', { name: "Link dell'ordine" }))
+  expect(screen.getByLabelText('Si apre solo dopo il login')).toHaveValue(`${window.location.origin}/ordini/o1`)
   await user.click(screen.getByRole('button', { name: 'Copia link' }))
   expect(await screen.findByText('Link copiato')).toBeInTheDocument()
   expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/ordini/o1`)
@@ -257,4 +266,102 @@ it('importo non valido non registra il pagamento', async () => {
   await userEvent.type(screen.getByLabelText('Importo (€)'), 'abc')
   await userEvent.click(screen.getByRole('button', { name: 'Aggiungi pagamento' }))
   expect(await screen.findByText('Scrivi un importo valido')).toBeInTheDocument()
+})
+
+describe('collegamenti e organizzazione della pagina', () => {
+  const pagato = [{ importoCent: 500, data: '2026-11-05' }]
+
+  it('il percorso porta all\'elenco ordini e alla scheda del cliente', () => {
+    h.ordine = ordineDiProva({ pagamenti: pagato, stato: 'confermato' })
+    apri()
+    const percorso = screen.getByRole('navigation', { name: 'Percorso' })
+    expect(percorso).toHaveTextContent('Ordini')
+    expect(within(percorso).getByRole('link', { name: 'Ordini' })).toHaveAttribute('href', '/ordini')
+    expect(within(percorso).getByRole('link', { name: 'Maria Rossi' })).toHaveAttribute('href', '/clienti/c1')
+    expect(percorso.querySelector('[aria-current="page"]')).toHaveTextContent('n. 7')
+  })
+
+  it('le scorciatoie portano alla scheda del cliente, ai suoi ordini e a un nuovo ordine per lui', () => {
+    h.ordine = ordineDiProva({ pagamenti: pagato, stato: 'confermato' })
+    apri()
+    const s = screen.getByLabelText('Scorciatoie')
+    expect(within(s).getByRole('link', { name: 'Scheda cliente' })).toHaveAttribute('href', '/clienti/c1')
+    expect(within(s).getByRole('link', { name: 'Altri ordini di Maria Rossi' })).toHaveAttribute('href', '/ordini?cliente=c1')
+    expect(within(s).getByRole('link', { name: '+ Nuovo ordine per Maria Rossi' })).toHaveAttribute('href', '/ordini/nuovo?cliente=c1')
+  })
+
+  it.each([
+    ['confermato', '/spedizioni'],
+    ['pronto', '/spedizioni'],
+    ['spedito', '/spedizioni?vista=spediti'],
+    ['consegnato', '/spedizioni?vista=consegnati'],
+  ] as const)('"Nelle Spedizioni" per un ordine %s apre la vista giusta', (stato, href) => {
+    h.ordine = ordineDiProva({ stato, pagamenti: pagato })
+    apri()
+    expect(screen.getByRole('link', { name: 'Nelle Spedizioni' })).toHaveAttribute('href', href)
+  })
+
+  it('un ordine in attesa di acconto rimanda alla vista "in attesa"', () => {
+    h.ordine = ordineDiProva()
+    apri()
+    expect(screen.getByRole('link', { name: 'Nelle Spedizioni' })).toHaveAttribute('href', '/spedizioni?vista=attesa')
+  })
+
+  it('ordine precedente e successivo, per scorrere senza tornare all\'elenco', () => {
+    h.ordine = ordineDiProva({ id: 'o1', numero: 7, stato: 'confermato', pagamenti: pagato })
+    h.tutti = [
+      ordineDiProva({ id: 'o5', numero: 5, clienteNome: 'Luca Bianchi' }),
+      ordineDiProva({ id: 'o6', numero: 6, clienteNome: 'Anna Verdi' }),
+      ordineDiProva({ id: 'o1', numero: 7 }),
+      ordineDiProva({ id: 'o8', numero: 8, clienteNome: 'Paolo Neri' }),
+      ordineDiProva({ id: 'o9', numero: 9, clienteNome: 'Sara Blu' }),
+    ]
+    apri()
+    const nav = screen.getByRole('navigation', { name: 'Altri ordini' })
+    expect(within(nav).getByRole('link', { name: '← n. 6 · Anna Verdi' })).toHaveAttribute('href', '/ordini/o6')
+    expect(within(nav).getByRole('link', { name: 'n. 8 · Paolo Neri →' })).toHaveAttribute('href', '/ordini/o8')
+    expect(within(nav).getAllByRole('link')).toHaveLength(2)
+  })
+
+  it('il primo ordine non ha il precedente, l\'ultimo non ha il successivo', () => {
+    h.ordine = ordineDiProva({ id: 'o1', numero: 1, stato: 'confermato', pagamenti: pagato })
+    h.tutti = [ordineDiProva({ id: 'o1', numero: 1 }), ordineDiProva({ id: 'o2', numero: 2, clienteNome: 'Luca Bianchi' })]
+    apri()
+    const nav = screen.getByRole('navigation', { name: 'Altri ordini' })
+    expect(within(nav).getAllByRole('link')).toHaveLength(1)
+    expect(within(nav).getByRole('link', { name: /n\. 2/ })).toBeInTheDocument()
+  })
+
+  it('un ordine solo non mostra la navigazione tra ordini', () => {
+    h.ordine = ordineDiProva({ id: 'o1', numero: 1, stato: 'confermato', pagamenti: pagato })
+    h.tutti = [ordineDiProva({ id: 'o1', numero: 1 })]
+    apri()
+    expect(screen.queryByRole('navigation', { name: 'Altri ordini' })).not.toBeInTheDocument()
+  })
+
+  it('le sezioni: Pagamenti aperta, Link e Altre azioni chiuse', () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato })
+    apri()
+    expect(screen.getByRole('button', { name: 'Pagamenti (1)' })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: "Link dell'ordine" })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.getByRole('button', { name: 'Altre azioni' })).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByRole('button', { name: 'Elimina ordine' })).not.toBeInTheDocument()
+  })
+
+  it('il menu dello stato non propone "In attesa di acconto" se c\'è già un acconto', () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato })
+    apri()
+    const opzioni = within(screen.getByLabelText("Stato dell'ordine")).getAllByRole('option').map((o) => o.textContent)
+    expect(opzioni).not.toContain('In attesa di acconto')
+    expect(opzioni).toContain('Confermato')
+    expect(opzioni).toContain('Annullato')
+  })
+
+  it('senza acconto lo stato è "In attesa di acconto" e il menu non resta vuoto', () => {
+    h.ordine = ordineDiProva()
+    apri()
+    const menu = screen.getByLabelText("Stato dell'ordine")
+    expect(menu).toHaveValue('in attesa acconto')
+    expect(within(menu).getAllByRole('option').map((o) => o.textContent)).toContain('In attesa di acconto')
+  })
 })

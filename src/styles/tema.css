@@ -15,6 +15,7 @@
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--sfondo); }
+a { color: var(--arancio); }
 h1, h2 { color: var(--legno); margin: 0 0 .75rem; }
 button, .bottone {
   min-height: 44px; padding: .6rem 1rem; border-radius: 10px; border: 0;

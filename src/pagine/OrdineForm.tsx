@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
-import { Link, useNavigate, useSearchParams } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ascoltaCliente } from '../data/clienti'
+import { Briciole } from '../componenti/Briciole'
 import { SelezionaCliente } from '../componenti/SelezionaCliente'
 import { RigheEditor, righeDaForm, rigaVuota, type RigaForm } from '../componenti/RigheEditor'
 import { creaOrdine } from '../data/ordini'
@@ -72,7 +73,7 @@ export default function OrdineForm() {
 
   return (
     <main className="pagina">
-      <p><Link to="/ordini">← Ordini</Link></p>
+      <Briciole voci={[{ testo: 'Ordini', a: '/ordini' }, { testo: 'Nuovo ordine' }]} />
       <h1>Nuovo ordine</h1>
       <form onSubmit={(e) => void salva(e)}>
         <section className="scheda">

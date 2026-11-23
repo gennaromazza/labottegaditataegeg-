@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BadgePagamento } from '../componenti/BadgePagamento'
 import { ascoltaCliente } from '../data/clienti'
-import { aggiornaOrdine, aggiungiPagamento, ascoltaOrdine, eliminaOrdine, rimuoviPagamento } from '../data/ordini'
+import { aggiornaOrdine, aggiungiPagamento, ascoltaOrdine, ascoltaOrdini, eliminaOrdine, rimuoviPagamento } from '../data/ordini'
 import { oggiISO } from '../data/util'
 import { formatData, formatEuro, residuoCent, totaleCent, versatoCent } from '../lib/calcoli'
 import { parseEuro } from '../lib/importi'
@@ -10,9 +10,11 @@ import { linkOrdine } from '../lib/link'
 import { generaPdfOrdine } from '../lib/pdf'
 import { linkWhatsApp, testoIndirizzo } from '../lib/whatsapp'
 import { AvanzamentoOrdine } from '../componenti/AvanzamentoOrdine'
+import { Briciole } from '../componenti/Briciole'
+import { Sezione } from '../componenti/Sezione'
 import { BadgeStato } from '../componenti/BadgeStato'
-import { ErroreRegola, puoCambiareStato } from '../lib/stati'
-import { ETICHETTE_METODO, ETICHETTE_STATO, METODI, STATI, type Cliente, type MetodoPagamento, type Ordine, type Pagamento, type StatoOrdine } from '../lib/tipi'
+import { ErroreRegola, puoCambiareStato, statiSceglibili } from '../lib/stati'
+import { ETICHETTE_METODO, ETICHETTE_STATO, METODI, type Cliente, type MetodoPagamento, type Ordine, type Pagamento, type StatoOrdine } from '../lib/tipi'
 
 const ERRORE_SCRITTURA = 'Non sono riuscito a salvare. Controlla la connessione e riprova.'
 
@@ -82,7 +84,10 @@ export default function OrdineDettaglio() {
 
   const [cliente, setCliente] = useState<Cliente | null>(null)
 
+  const [tutti, setTutti] = useState<Ordine[]>([])
+
   useEffect(() => ascoltaOrdine(id, setOrdine), [id])
+  useEffect(() => ascoltaOrdini(setTutti), [])
   const clienteId = ordine?.clienteId
   useEffect(() => (clienteId ? ascoltaCliente(clienteId, setCliente) : undefined), [clienteId])
 
@@ -97,6 +102,16 @@ export default function OrdineDettaglio() {
   }
   const link = linkWhatsApp(vivo)
   const residuo = residuoCent(ordine)
+
+  // l'ordine prima e quello dopo (per numero), per scorrere senza tornare all'elenco
+  const precedente = tutti.filter((o) => o.numero < ordine.numero).sort((a, b) => b.numero - a.numero)[0]
+  const successivo = tutti.filter((o) => o.numero > ordine.numero).sort((a, b) => a.numero - b.numero)[0]
+  const nelleSpedizioni =
+    ordine.stato === 'spedito' ? '/spedizioni?vista=spediti'
+    : ordine.stato === 'in attesa acconto' ? '/spedizioni?vista=attesa'
+    : ordine.stato === 'consegnato' ? '/spedizioni?vista=consegnati'
+    : '/spedizioni'
+  const filtroCliente = `/ordini?cliente=${encodeURIComponent(ordine.clienteId)}`
 
   async function esegui(azione: () => Promise<void>) {
     setErroreAzione('')
@@ -172,8 +187,20 @@ export default function OrdineDettaglio() {
         <img src="/logo.png" alt="" />
         <strong>La Bottega di Tata e Gegè</strong>
       </div>
-      <p className="no-stampa"><Link to="/ordini">← Ordini</Link></p>
+      <Briciole
+        voci={[
+          { testo: 'Ordini', a: '/ordini' },
+          { testo: vivo.clienteNome, a: `/clienti/${ordine.clienteId}` },
+          { testo: `n. ${ordine.numero}` },
+        ]}
+      />
       <h1>Ordine n. {ordine.numero}</h1>
+      {(precedente || successivo) && (
+        <nav className="riga no-stampa" aria-label="Altri ordini">
+          {precedente ? <Link to={`/ordini/${precedente.id}`}>← n. {precedente.numero} · {precedente.clienteNome}</Link> : <span />}
+          {successivo ? <Link to={`/ordini/${successivo.id}`}>n. {successivo.numero} · {successivo.clienteNome} →</Link> : <span />}
+        </nav>
+      )}
       <p className="solo-stampa">Stato: {ETICHETTE_STATO[ordine.stato]}</p>
       <p>
         <Link to={`/clienti/${ordine.clienteId}`}><strong>{ordine.clienteNome}</strong></Link>
@@ -185,18 +212,21 @@ export default function OrdineDettaglio() {
         {cliente?.spedizione ? (
           <>Spedizione a: {testoIndirizzo(cliente.spedizione)}</>
         ) : (
-          <>Nessun indirizzo di spedizione. <Link to={`/clienti/${ordine.clienteId}`}>Aggiungilo nella scheda cliente</Link></>
+          <>Nessun indirizzo di spedizione. <Link to={`/clienti/${ordine.clienteId}?apri=spedizione`}>Aggiungilo nella scheda cliente</Link></>
         )}
       </p>
       {ordine.notePreparazione && <p className="solo-stampa">Preparazione: {ordine.notePreparazione}</p>}
 
-      <div className="riga no-stampa">
-        <BadgeStato stato={ordine.stato} />
-        <Link to="/spedizioni">Vai alle Spedizioni</Link>
+      <p className="no-stampa"><BadgeStato stato={ordine.stato} /></p>
+      <div className="scorciatoie no-stampa" aria-label="Scorciatoie">
+        <Link to={`/clienti/${ordine.clienteId}`}>Scheda cliente</Link>
+        <Link to={filtroCliente}>Altri ordini di {vivo.clienteNome}</Link>
+        <Link to={`/ordini/nuovo?cliente=${encodeURIComponent(ordine.clienteId)}`}>+ Nuovo ordine per {vivo.clienteNome}</Link>
+        <Link to={nelleSpedizioni}>Nelle Spedizioni</Link>
       </div>
       <label htmlFor="stato" className="no-stampa">Stato dell&apos;ordine</label>
       <select id="stato" className="no-stampa" value={ordine.stato} onChange={(e) => cambiaStato(e.target.value as StatoOrdine)}>
-        {STATI.map((s) => <option key={s} value={s}>{ETICHETTE_STATO[s]}</option>)}
+        {statiSceglibili(ordine).map((s) => <option key={s} value={s}>{ETICHETTE_STATO[s]}</option>)}
       </select>
       <section className="scheda no-stampa" style={{ marginTop: '1rem' }} aria-label="Avanzamento">
         <AvanzamentoOrdine key={ordine.id} ordine={vivo} indirizzo={cliente?.spedizione} />
@@ -236,32 +266,40 @@ export default function OrdineDettaglio() {
       </div>
       {erroreAzione && <p className="errore" role="alert">{erroreAzione}</p>}
 
-      <section className="scheda no-stampa">
-        <label htmlFor="link-ordine">Link dell&apos;ordine (si apre solo dopo il login)</label>
-        <input id="link-ordine" readOnly value={linkOrdine(ordine.id)} onFocus={(e) => e.currentTarget.select()} />
-        <p>
-          <button type="button" className="secondario" onClick={() => void copiaLink()}>Copia link</button>{' '}
-          {copiato && <span role="status">Link copiato</span>}
-        </p>
-      </section>
+      <div className="no-stampa">
+        <Sezione titolo="Link dell'ordine" ricorda="dettaglio:link">
+          <label htmlFor="link-ordine">Si apre solo dopo il login</label>
+          <input id="link-ordine" readOnly value={linkOrdine(ordine.id)} onFocus={(e) => e.currentTarget.select()} />
+          <p>
+            <button type="button" className="secondario" onClick={() => void copiaLink()}>Copia link</button>{' '}
+            {copiato && <span role="status">Link copiato</span>}
+          </p>
+        </Sezione>
+      </div>
       <p className="solo-stampa">Link: {linkOrdine(ordine.id)}</p>
 
-      <h2>Pagamenti</h2>
-      {ordine.pagamenti.length === 0 && <p>Nessun pagamento registrato.</p>}
-      {ordine.pagamenti.map((p, i) => (
-        <div className="scheda riga" key={i}>
-          <span>{formatData(p.data)} · {p.metodo ? ETICHETTE_METODO[p.metodo] : 'metodo non indicato'}</span>
-          <span>
-            <strong>{formatEuro(p.importoCent)}</strong>{' '}
-            <button type="button" className="secondario" aria-label={`Rimuovi pagamento ${i + 1}`} onClick={() => togliPagamento(p)}>Rimuovi</button>
-          </span>
-        </div>
-      ))}
-      <FormPagamento id={ordine.id} />
+      <Sezione titolo="Pagamenti" conteggio={ordine.pagamenti.length} aperta ricorda="dettaglio:pagamenti">
+        {ordine.pagamenti.length === 0 && <p>Nessun pagamento registrato.</p>}
+        {ordine.pagamenti.map((p, i) => (
+          <div className="scheda riga" key={i}>
+            <span>{formatData(p.data)} · {p.metodo ? ETICHETTE_METODO[p.metodo] : 'metodo non indicato'}</span>
+            <span>
+              <strong>{formatEuro(p.importoCent)}</strong>{' '}
+              <button type="button" className="secondario" aria-label={`Rimuovi pagamento ${i + 1}`} onClick={() => togliPagamento(p)}>Rimuovi</button>
+            </span>
+          </div>
+        ))}
+        <FormPagamento id={ordine.id} />
+      </Sezione>
 
-      <p className="no-stampa">
-        <button type="button" className="pericolo" onClick={eliminaQuestoOrdine}>Elimina ordine</button>
-      </p>
+      <div className="no-stampa">
+        <Sezione titolo="Altre azioni" ricorda="dettaglio:azioni">
+          <p>
+            <button type="button" className="pericolo" onClick={eliminaQuestoOrdine}>Elimina ordine</button>
+          </p>
+          <p className="nota">Se il cliente ha solo rinunciato, di solito conviene mettere lo stato «Annullato» invece di eliminare.</p>
+        </Sezione>
+      </div>
     </main>
   )
 }

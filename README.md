@@ -34,6 +34,17 @@ Solo gli account email/password creati da noi, e solo le email elencate in `fire
 
 `npm run test:rules` usa l'emulatore Firestore, che richiede **Java** installato.
 
+## Organizzazione delle schermate
+
+Con molti ordini nessuna pagina è tutta aperta:
+
+- **Sezioni richiudibili** (`src/componenti/Sezione.tsx`); alcune ricordano se le hai aperte o chiuse per tutta la sessione (`ricorda`).
+- **"Mostra altri"** (`src/componenti/Paginazione.tsx`): 15 schede alla volta negli elenchi, 10 per gruppo nelle Spedizioni.
+- **Ordini**: ricerca per cliente o numero, scorciatoie con contatori (Tutti, Da incassare, In attesa di acconto, Spediti), "Da lavorare" che porta alle Spedizioni, altri filtri a scomparsa. I filtri stanno nell'indirizzo: `/ordini?cliente=<id>&stato=…&pagamento=…&canale=…`.
+- **Spedizioni**: con più di 3 ordini nella vista restano aperti solo il primo gruppo e le schede compatte, con il passo successivo a un tocco.
+- **Collegamenti**: percorso in alto (`Briciole`), ordine precedente e successivo, scorciatoie verso la scheda cliente, gli altri ordini del cliente, un nuovo ordine per lui, la vista giusta nelle Spedizioni; `/clienti/<id>?apri=spedizione` apre direttamente il modulo dell'indirizzo.
+- Limite noto: "precedente/successivo" scorre tutti gli ordini per numero, senza tenere conto dei filtri della lista.
+
 ## Magazzino
 
 La pagina `/magazzino` (prima Listino) è un'unica lista di **articoli**: *Materiale* (si consuma nelle ricette) o *Prodotto* (si vende, sempre a pezzi, con un prezzo).
@@ -49,7 +60,7 @@ Design: `docs/superpowers/specs/2026-11-23-magazzino-design.md`.
 
 Flusso: **in attesa di acconto → confermato → in preparazione → pronto da spedire → spedito → consegnato** (oppure annullato).
 
-- Senza almeno un pagamento registrato l'ordine non procede (regola in `src/lib/stati.ts`). Il primo acconto porta da solo l'ordine a "confermato"; togliendo l'unico acconto di un ordine solo confermato torna "in attesa".
+- Senza almeno un pagamento registrato l'ordine non procede (regola in `src/lib/stati.ts`). **"In attesa di acconto" e "Confermato" seguono i pagamenti da soli**: con un acconto l'ordine è confermato, senza no; "In attesa" non si sceglie a mano e non compare nel menu dello stato se c'è già un acconto. Togliendo l'unico acconto di un ordine non ancora partito torna in attesa; se è già spedito o consegnato il pagamento non si toglie (prima si annulla l'ordine).
 - Gli ordini creati con i vecchi stati si leggono così: "da fare" diventa "in attesa di acconto" o "confermato" in base ai pagamenti, "in lavorazione" diventa "in preparazione" (nessuna migrazione dei dati).
 - Pagina **Spedizioni** (`/spedizioni`): Da lavorare, Spediti, In attesa di acconto, Consegnati. Note di preparazione, corriere e tracking si inseriscono lì o nel dettaglio ordine.
 - Quando segni "spedito" compare **Avvisa la spedizione su WhatsApp**: apre WhatsApp con il messaggio già scritto (`messaggioSpedizione` in `src/lib/whatsapp.ts`).

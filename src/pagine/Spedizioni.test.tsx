@@ -68,7 +68,7 @@ describe('Da lavorare', () => {
 
   it('i pronti vengono per primi, poi in preparazione, poi da preparare', () => {
     apri()
-    const titoli = screen.getAllByRole('heading', { level: 2 }).map((t) => t.textContent)
+    const titoli = screen.getAllByRole('heading', { level: 2 }).map((t) => t.textContent!.replace(/[▾▸]/g, ''))
     expect(titoli).toEqual(['Pronti da spedire (1)', 'In preparazione (1)', 'Da preparare (acconto ricevuto) (1)'])
   })
 
@@ -76,7 +76,7 @@ describe('Da lavorare', () => {
     h.clienti = []
     apri()
     expect(screen.getAllByText(/Indirizzo mancante/).length).toBe(3)
-    expect(screen.getAllByRole('link', { name: /Aggiungilo nella scheda cliente/ })[0]).toHaveAttribute('href', '/clienti/c1')
+    expect(screen.getAllByRole('link', { name: /Aggiungilo nella scheda cliente/ })[0]).toHaveAttribute('href', '/clienti/c1?apri=spedizione')
   })
 
   it('con l\'indirizzo noto lo mostra per la spedizione', () => {
@@ -217,5 +217,91 @@ describe('Consegnati e vuoti', () => {
   it('una vista sconosciuta nel link torna a "Da lavorare"', () => {
     apri('/spedizioni?vista=boh')
     expect(screen.getByRole('button', { name: /Da lavorare/ })).toHaveAttribute('aria-pressed', 'true')
+  })
+})
+
+describe('con molti ordini la pagina resta compatta', () => {
+  const molti = () => {
+    h.ordini = [
+      ordineDiProva({ id: 'p1', numero: 21, stato: 'pronto', pagamenti: pag }),
+      ordineDiProva({ id: 'p2', numero: 22, stato: 'pronto', pagamenti: pag }),
+      ordineDiProva({ id: 'r1', numero: 23, stato: 'in preparazione', pagamenti: pag }),
+      ordineDiProva({ id: 'r2', numero: 24, stato: 'in preparazione', pagamenti: pag }),
+      ordineDiProva({ id: 'c1', numero: 25, stato: 'confermato', pagamenti: pag }),
+      ordineDiProva({ id: 'c2', numero: 26, stato: 'confermato', pagamenti: pag }),
+    ]
+  }
+  const gruppo = (nome: RegExp) => screen.getByRole('button', { name: nome })
+
+  it('si apre solo il primo gruppo; gli altri si aprono con un tocco', async () => {
+    molti()
+    apri()
+    expect(gruppo(/Pronti da spedire/)).toHaveAttribute('aria-expanded', 'true')
+    expect(gruppo(/In preparazione/)).toHaveAttribute('aria-expanded', 'false')
+    expect(gruppo(/Da preparare/)).toHaveAttribute('aria-expanded', 'false')
+    expect(screen.queryByText(/n\. 23 ·/)).not.toBeInTheDocument()
+    await userEvent.click(gruppo(/In preparazione/))
+    expect(screen.getByText(/n\. 23 ·/)).toBeInTheDocument()
+  })
+
+  it('le schede sono compatte: i dettagli compaiono solo aprendole', async () => {
+    molti()
+    apri()
+    expect(screen.queryByLabelText('Corriere (facoltativo)')).not.toBeInTheDocument()
+    const scheda = screen.getByRole('article', { name: 'Ordine 21' })
+    const apriScheda = within(scheda).getByRole('button', { name: /Apri ordine 21/ })
+    expect(apriScheda).toHaveAttribute('aria-expanded', 'false')
+    await userEvent.click(apriScheda)
+    expect(apriScheda).toHaveAttribute('aria-expanded', 'true')
+    expect(within(scheda).getByLabelText('Corriere (facoltativo)')).toBeInTheDocument()
+    expect(within(scheda).getByRole('link', { name: "Apri la pagina dell'ordine" })).toHaveAttribute('href', '/ordini/p1')
+  })
+
+  it('da chiusa, la scheda ha il passo successivo con un tocco (dove non serve scrivere altro)', async () => {
+    molti()
+    apri()
+    await userEvent.click(gruppo(/In preparazione/))
+    await userEvent.click(within(screen.getByRole('article', { name: 'Ordine 23' })).getByRole('button', { name: 'Segna come pronto' }))
+    expect(h.aggiorna).toHaveBeenCalledWith('r1', { stato: 'pronto' })
+    await userEvent.click(gruppo(/Da preparare/))
+    await userEvent.click(within(screen.getByRole('article', { name: 'Ordine 25' })).getByRole('button', { name: 'Inizia la preparazione' }))
+    expect(h.aggiorna).toHaveBeenCalledWith('c1', { stato: 'in preparazione' })
+  })
+
+  it('per un pronto non esiste il passo rapido: serve il corriere, quindi si apre la scheda', () => {
+    molti()
+    apri()
+    expect(within(screen.getByRole('article', { name: 'Ordine 21' })).queryByRole('button', { name: 'Segna come spedito' })).not.toBeInTheDocument()
+  })
+
+  it('un errore del passo rapido si vede', async () => {
+    molti()
+    h.aggiorna.mockImplementation(async () => {
+      throw new Error('offline')
+    })
+    apri()
+    await userEvent.click(gruppo(/In preparazione/))
+    await userEvent.click(within(screen.getByRole('article', { name: 'Ordine 23' })).getByRole('button', { name: 'Segna come pronto' }))
+    expect(await screen.findByText(/Non sono riuscito a salvare/)).toBeInTheDocument()
+  })
+
+  it('un gruppo lungo mostra 10 schede e poi "Mostra altri"', async () => {
+    h.ordini = Array.from({ length: 12 }, (_, i) => ordineDiProva({ id: `x${i}`, numero: 100 + i, stato: 'pronto', pagamenti: pag }))
+    apri()
+    expect(screen.getAllByRole('article')).toHaveLength(10)
+    await userEvent.click(screen.getByRole('button', { name: 'Mostra altri 2 (ne restano 2)' }))
+    expect(screen.getAllByRole('article')).toHaveLength(12)
+  })
+
+  it('con pochi ordini tutto resta aperto, come prima', () => {
+    apri()
+    expect(screen.getByRole('button', { name: /Pronti da spedire/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByRole('button', { name: /In preparazione/ })).toHaveAttribute('aria-expanded', 'true')
+    expect(screen.getByLabelText('Corriere (facoltativo)')).toBeInTheDocument()
+  })
+
+  it("c'è il collegamento all'elenco completo degli ordini", () => {
+    apri()
+    expect(screen.getByRole('link', { name: 'Vedi tutti gli ordini' })).toHaveAttribute('href', '/ordini')
   })
 })

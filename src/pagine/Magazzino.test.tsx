@@ -401,3 +401,22 @@ describe('modifica articolo', () => {
     expect(h.aggiorna).not.toHaveBeenCalled()
   })
 })
+
+describe('con molti articoli', () => {
+  it('mostra i primi 15 e "Mostra altri"; cambiando ricerca si riparte dall\'inizio', async () => {
+    h.articoli = Array.from({ length: 40 }, (_, i) => ({
+      id: `m${i}`,
+      nome: `Articolo ${String(i).padStart(2, '0')}`,
+      tipo: 'materiale' as const,
+      unita: 'pezzi' as const,
+      giacenza: i,
+      attivo: true,
+    }))
+    apri()
+    expect(screen.getAllByRole('article')).toHaveLength(15)
+    await userEvent.click(screen.getByRole('button', { name: 'Mostra altri 15 (ne restano 25)' }))
+    expect(screen.getAllByRole('article')).toHaveLength(30)
+    await userEvent.type(screen.getByLabelText('Cerca nel magazzino'), 'articolo')
+    expect(screen.getAllByRole('article')).toHaveLength(15)
+  })
+})

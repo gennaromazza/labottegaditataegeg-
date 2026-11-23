@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { MostraAltri, usePaginazione } from '../componenti/Paginazione'
 import { SchedaArticolo } from '../componenti/SchedaArticolo'
 import { ascoltaArticoli, creaArticolo } from '../data/magazzino'
 import { parseEuro } from '../lib/importi'
@@ -101,6 +102,7 @@ export default function Magazzino() {
 
   const inUso = disattivati ? articoli : articoli.filter((a) => a.attivo)
   const visibili = filtraArticoli(inUso, ricerca, tipo)
+  const { visibili: pagina, resto, mostraAltri } = usePaginazione(visibili, 15, [ricerca, tipo, disattivati].join('|'))
   const conta = (t: TipoArticolo | '') => inUso.filter((a) => !t || a.tipo === t).length
   const nascosti = articoli.length - articoli.filter((a) => a.attivo).length
 
@@ -133,7 +135,8 @@ export default function Magazzino() {
       <div style={{ marginTop: '.75rem' }}>
         {articoli.length === 0 && <p>Il magazzino è vuoto. Aggiungi il primo articolo con «+ Nuovo articolo».</p>}
         {articoli.length > 0 && visibili.length === 0 && <p>Nessun articolo corrisponde.</p>}
-        {visibili.map((a) => <SchedaArticolo key={a.id} articolo={a} />)}
+        {pagina.map((a) => <SchedaArticolo key={a.id} articolo={a} />)}
+        <MostraAltri resto={resto} onClick={mostraAltri} />
       </div>
     </main>
   )

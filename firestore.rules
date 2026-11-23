@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function autorizzato() {
+      return request.auth != null
+        && request.auth.token.email in [
+          'clickfotoegadget@hotmail.com',
+          'gennaro.mazzacane@gmail.com'
+        ];
+    }
+
+    match /clienti/{id}  { allow read, write: if autorizzato(); }
+    match /ordini/{id}   { allow read, write: if autorizzato(); }
+    match /listino/{id}  { allow read, write: if autorizzato(); }
+    match /meta/{id}     { allow read, write: if autorizzato(); }
+
+    match /{document=**} { allow read, write: if false; }
+  }
+}

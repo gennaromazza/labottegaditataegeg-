@@ -8,7 +8,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "test": "vitest run",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-bottega \"vitest run --config vitest.rules.config.ts\""
   },
   "dependencies": {
     "firebase": "^13.4.0",

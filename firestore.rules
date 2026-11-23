@@ -12,6 +12,7 @@ service cloud.firestore {
     match /clienti/{id}  { allow read, write: if autorizzato(); }
     match /ordini/{id}   { allow read, write: if autorizzato(); }
     match /listino/{id}  { allow read, write: if autorizzato(); }
+    match /spese/{id}    { allow read, write: if autorizzato(); }
     match /meta/{id}     { allow read, write: if autorizzato(); }
 
     match /{document=**} { allow read, write: if false; }

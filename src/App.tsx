@@ -9,6 +9,7 @@ import OrdineDettaglio from './pagine/OrdineDettaglio'
 import Clienti from './pagine/Clienti'
 import ClienteScheda from './pagine/ClienteScheda'
 import Incassi from './pagine/Incassi'
+import Spese from './pagine/Spese'
 import Listino from './pagine/Listino'
 
 export default function App() {
@@ -24,6 +25,7 @@ export default function App() {
             <Route path="/clienti" element={<Clienti />} />
             <Route path="/clienti/:id" element={<ClienteScheda />} />
             <Route path="/incassi" element={<Incassi />} />
+            <Route path="/spese" element={<Spese />} />
             <Route path="/listino" element={<Listino />} />
           </Route>
         </Route>

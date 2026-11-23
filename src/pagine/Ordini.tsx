@@ -16,8 +16,15 @@ export default function Ordini() {
 
   return (
     <main className="pagina">
-      <h1>Ordini</h1>
-      <div className="griglia2">
+      <div className="solo-stampa intestazione-stampa">
+        <img src="/logo.png" alt="" />
+        <strong>La Bottega di Tata e Gegè · Elenco ordini{stato ? ` · ${stato}` : ''}{canale ? ` · ${canale}` : ''}</strong>
+      </div>
+      <div className="riga no-stampa">
+        <h1>Ordini</h1>
+        <button type="button" className="secondario" onClick={() => window.print()}>Stampa elenco</button>
+      </div>
+      <div className="griglia2 no-stampa">
         <div>
           <label htmlFor="f-stato">Stato</label>
           <select id="f-stato" value={stato} onChange={(e) => setStato(e.target.value as StatoOrdine | '')}>

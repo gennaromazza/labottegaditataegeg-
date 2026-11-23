@@ -1,4 +1,4 @@
-import type { Ordine, Riga } from './tipi'
+import type { CategoriaSpesa, Ordine, Riga, Spesa } from './tipi'
 
 export type StatoPagamento = 'non_pagato' | 'acconto' | 'saldato' | 'eccedente'
 
@@ -53,6 +53,29 @@ export function incassiPer(
     }
   }
   return [...mappa.entries()].map(([k, totale]) => ({ chiave: k, totaleCent: totale }))
+}
+
+export function speseFiltrate(spese: Spesa[], da: string, a: string, categoria?: CategoriaSpesa): Spesa[] {
+  return spese.filter((s) => s.data >= da && s.data <= a && (!categoria || s.categoria === categoria))
+}
+
+export function totaleSpese(spese: Spesa[], da: string, a: string, categoria?: CategoriaSpesa): number {
+  return speseFiltrate(spese, da, a, categoria).reduce((somma, s) => somma + s.importoCent, 0)
+}
+
+export function spesePerCategoria(spese: Spesa[], da: string, a: string): { chiave: string; totaleCent: number }[] {
+  const mappa = new Map<string, number>()
+  for (const s of speseFiltrate(spese, da, a)) mappa.set(s.categoria, (mappa.get(s.categoria) ?? 0) + s.importoCent)
+  return [...mappa.entries()].map(([chiave, totaleCent]) => ({ chiave, totaleCent }))
+}
+
+export function totaleIncassi(ordini: Ordine[], da: string, a: string): number {
+  return incassiPer(ordini, 'canale', da, a).reduce((somma, v) => somma + v.totaleCent, 0)
+}
+
+/** Utile del periodo = incassi (per data di pagamento) meno spese (per data della spesa). */
+export function utileCent(ordini: Ordine[], spese: Spesa[], da: string, a: string): number {
+  return totaleIncassi(ordini, da, a) - totaleSpese(spese, da, a)
 }
 
 const euro = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' })

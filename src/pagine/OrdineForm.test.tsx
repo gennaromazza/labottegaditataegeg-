@@ -97,6 +97,18 @@ it('riga compilata a metà blocca il salvataggio', async () => {
   expect(h.crea).not.toHaveBeenCalled()
 })
 
+it('Stampa elenco apre la stampa del browser', async () => {
+  const stampa = vi.fn()
+  window.print = stampa
+  render(
+    <MemoryRouter>
+      <Ordini />
+    </MemoryRouter>,
+  )
+  await userEvent.click(screen.getByRole('button', { name: 'Stampa elenco' }))
+  expect(stampa).toHaveBeenCalledTimes(1)
+})
+
 it('i filtri della lista per stato e canale', async () => {
   render(
     <MemoryRouter>

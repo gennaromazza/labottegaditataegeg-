@@ -1,0 +1,15 @@
+.solo-stampa { display: none; }
+
+@media print {
+  @page { margin: 14mm; }
+  body { background: #fff !important; color: #000; }
+  .menu, .fab, .no-stampa, form, button, select, input, textarea, a.bottone { display: none !important; }
+  .contenuto { margin-left: 0 !important; }
+  .pagina { max-width: none; padding: 0; }
+  .solo-stampa { display: block; }
+  .scheda { border: 1px solid #999; background: #fff; break-inside: avoid; }
+  .badge { border: 1px solid #999; background: #fff; color: #000; }
+  a { color: #000; text-decoration: none; }
+  .intestazione-stampa { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .intestazione-stampa img { height: 56px; }
+}

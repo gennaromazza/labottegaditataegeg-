@@ -1,0 +1,82 @@
+import { fireEvent, render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import Spese from './Spese'
+
+const h = vi.hoisted(() => ({ crea: vi.fn(), elimina: vi.fn() }))
+
+vi.mock('../data/spese', () => ({
+  ascoltaSpese: (cb: (s: unknown[]) => void) => {
+    cb([
+      { id: 's1', descrizione: 'Corriere GLS', importoCent: 590, data: '2026-11-05', categoria: 'Spedizioni' },
+      { id: 's2', descrizione: 'Cera di soia', importoCent: 2000, data: '2026-11-10', categoria: 'Materiali' },
+      { id: 's3', descrizione: 'Corriere BRT', importoCent: 700, data: '2026-12-01', categoria: 'Spedizioni' },
+    ])
+    return () => {}
+  },
+  creaSpesa: (...a: unknown[]) => h.crea(...a),
+  eliminaSpesa: (...a: unknown[]) => h.elimina(...a),
+}))
+
+function periodo(da: string, a: string) {
+  fireEvent.change(screen.getByLabelText('Dal'), { target: { value: da } })
+  fireEvent.change(screen.getByLabelText('Al'), { target: { value: a } })
+}
+
+beforeEach(() => {
+  h.crea.mockReset()
+  h.elimina.mockReset()
+  h.crea.mockResolvedValue(undefined)
+  h.elimina.mockResolvedValue(undefined)
+})
+
+it('totale spese e totale spedizioni del periodo', () => {
+  render(<Spese />)
+  periodo('2026-11-01', '2026-11-30')
+  expect(screen.getByTestId('totale-spese').textContent).toMatch(/25,90/)
+  expect(screen.getByTestId('totale-spedizioni').textContent).toMatch(/5,90/)
+  periodo('2026-11-01', '2026-12-31')
+  expect(screen.getByTestId('totale-spedizioni').textContent).toMatch(/12,90/)
+})
+
+it('il filtro per categoria restringe l\'elenco ma non il totale delle spedizioni', async () => {
+  render(<Spese />)
+  periodo('2026-11-01', '2026-12-31')
+  await userEvent.selectOptions(screen.getByLabelText('Categoria', { selector: '#spe-cat' }), 'Spedizioni')
+  expect(screen.getByText('Corriere GLS')).toBeInTheDocument()
+  expect(screen.queryByText('Cera di soia')).not.toBeInTheDocument()
+  expect(screen.getByTestId('totale-spedizioni').textContent).toMatch(/12,90/)
+})
+
+it('registra una nuova spesa', async () => {
+  render(<Spese />)
+  await userEvent.type(screen.getByLabelText('Cosa hai pagato'), 'Scatole')
+  await userEvent.type(screen.getByLabelText('Importo (€)'), '12,50')
+  await userEvent.selectOptions(screen.getByLabelText('Categoria', { selector: '#sp-cat' }), 'Imballaggi')
+  await userEvent.click(screen.getByRole('button', { name: 'Aggiungi spesa' }))
+  expect(h.crea).toHaveBeenCalledWith(
+    expect.objectContaining({ descrizione: 'Scatole', importoCent: 1250, categoria: 'Imballaggi', data: expect.any(String) }),
+  )
+})
+
+it('descrizione o importo mancanti non salvano', async () => {
+  render(<Spese />)
+  await userEvent.click(screen.getByRole('button', { name: 'Aggiungi spesa' }))
+  expect(await screen.findByText('Scrivi cosa hai pagato')).toBeInTheDocument()
+  await userEvent.type(screen.getByLabelText('Cosa hai pagato'), 'Scatole')
+  await userEvent.type(screen.getByLabelText('Importo (€)'), 'abc')
+  await userEvent.click(screen.getByRole('button', { name: 'Aggiungi spesa' }))
+  expect(await screen.findByText('Scrivi un importo valido')).toBeInTheDocument()
+  expect(h.crea).not.toHaveBeenCalled()
+})
+
+it('elimina solo dopo la conferma', async () => {
+  render(<Spese />)
+  periodo('2026-11-01', '2026-11-30')
+  const conferma = vi.spyOn(window, 'confirm')
+  conferma.mockReturnValueOnce(false)
+  await userEvent.click(screen.getByRole('button', { name: 'Elimina spesa Corriere GLS' }))
+  expect(h.elimina).not.toHaveBeenCalled()
+  conferma.mockReturnValueOnce(true)
+  await userEvent.click(screen.getByRole('button', { name: 'Elimina spesa Corriere GLS' }))
+  expect(h.elimina).toHaveBeenCalledWith('s1')
+})

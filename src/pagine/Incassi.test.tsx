@@ -26,6 +26,16 @@ vi.mock('../data/ordini', () => ({
   },
 }))
 
+vi.mock('../data/spese', () => ({
+  ascoltaSpese: (cb: (s: unknown[]) => void) => {
+    cb([
+      { id: 's1', descrizione: 'Corriere', importoCent: 300, data: '2026-11-06', categoria: 'Spedizioni' },
+      { id: 's2', descrizione: 'Cera', importoCent: 1500, data: '2026-12-10', categoria: 'Materiali' },
+    ])
+    return () => {}
+  },
+}))
+
 function imposta(da: string, a: string) {
   fireEvent.change(screen.getByLabelText('Dal'), { target: { value: da } })
   fireEvent.change(screen.getByLabelText('Al'), { target: { value: a } })
@@ -47,6 +57,15 @@ it('mostra totale del periodo, canali, metodi e residuo', () => {
   expect(screen.getByText('bonifico')).toBeInTheDocument()
   // ordine a: totale 17,50 - versato 8,00 = 9,50; l'annullato non conta
   expect(screen.getByTestId('da-incassare').textContent).toMatch(/9,50/)
+})
+
+it('mostra spese e utile del periodo', () => {
+  apri()
+  imposta('2026-11-01', '2026-11-30')
+  expect(screen.getByTestId('spese-periodo').textContent).toMatch(/3,00/)
+  expect(screen.getByTestId('utile-periodo').textContent).toMatch(/4,00/) // 7,00 incassati - 3,00 spese
+  imposta('2026-12-01', '2026-12-31')
+  expect(screen.getByTestId('utile-periodo').textContent).toMatch(/-12,00|−12,00/) // 3,00 incassati - 15,00 spese
 })
 
 it('cambiando periodo i numeri cambiano', () => {

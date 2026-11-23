@@ -5,6 +5,7 @@ const VOCI = [
   { a: '/ordini', t: 'Ordini' },
   { a: '/clienti', t: 'Clienti' },
   { a: '/incassi', t: 'Incassi' },
+  { a: '/spese', t: 'Spese' },
   { a: '/listino', t: 'Listino' },
 ]
 

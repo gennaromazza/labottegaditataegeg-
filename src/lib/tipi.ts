@@ -6,6 +6,18 @@ export const CANALI: Canale[] = ['TikTok', 'WhatsApp', 'Instagram', 'Facebook', 
 export const STATI: StatoOrdine[] = ['da fare', 'in lavorazione', 'pronto', 'consegnato', 'annullato']
 export const METODI: MetodoPagamento[] = ['contanti', 'bonifico', 'paypal', 'altro']
 
+export type CategoriaSpesa = 'Materiali' | 'Spedizioni' | 'Imballaggi' | 'Attrezzatura' | 'Pubblicità' | 'Altro'
+export const CATEGORIE_SPESA: CategoriaSpesa[] = ['Materiali', 'Spedizioni', 'Imballaggi', 'Attrezzatura', 'Pubblicità', 'Altro']
+
+export interface Spesa {
+  id: string
+  descrizione: string
+  importoCent: number
+  data: string // YYYY-MM-DD
+  categoria: CategoriaSpesa
+  note?: string
+}
+
 export interface Riga {
   descrizione: string
   testoPersonalizzato?: string

@@ -83,6 +83,25 @@ it('annullato senza pagamenti non mostra residuo né badge di pagamento', () => 
   expect(screen.queryByText('Non pagato')).not.toBeInTheDocument()
 })
 
+it('mostra il link dell\'ordine e lo copia', async () => {
+  const user = userEvent.setup()
+  h.ordine = ordineDiProva()
+  apri()
+  expect(screen.getByLabelText(/Link dell'ordine/)).toHaveValue(`${window.location.origin}/ordini/o1`)
+  await user.click(screen.getByRole('button', { name: 'Copia link' }))
+  expect(await screen.findByText('Link copiato')).toBeInTheDocument()
+  expect(await navigator.clipboard.readText()).toBe(`${window.location.origin}/ordini/o1`)
+})
+
+it('il pulsante Stampa apre la stampa del browser', async () => {
+  const stampa = vi.fn()
+  window.print = stampa
+  h.ordine = ordineDiProva()
+  apri()
+  await userEvent.click(screen.getByRole('button', { name: 'Stampa' }))
+  expect(stampa).toHaveBeenCalledTimes(1)
+})
+
 it('annullato con versato mostra Da rimborsare', () => {
   h.ordine = ordineDiProva({ stato: 'annullato', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
   apri()

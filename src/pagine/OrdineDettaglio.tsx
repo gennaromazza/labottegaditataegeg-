@@ -6,6 +6,7 @@ import { aggiornaOrdine, aggiungiPagamento, ascoltaOrdine, rimuoviPagamento } fr
 import { oggiISO } from '../data/util'
 import { formatData, formatEuro, residuoCent, totaleCent, versatoCent } from '../lib/calcoli'
 import { parseEuro } from '../lib/importi'
+import { linkOrdine } from '../lib/link'
 import { generaPdfOrdine } from '../lib/pdf'
 import { linkWhatsApp } from '../lib/whatsapp'
 import { METODI, STATI, type Cliente, type MetodoPagamento, type Ordine, type StatoOrdine } from '../lib/tipi'
@@ -73,6 +74,7 @@ export default function OrdineDettaglio() {
   const { id = '' } = useParams()
   const [ordine, setOrdine] = useState<Ordine | null | undefined>(undefined)
   const [erroreAzione, setErroreAzione] = useState('')
+  const [copiato, setCopiato] = useState(false)
 
   const [cliente, setCliente] = useState<Cliente | null>(null)
 
@@ -101,6 +103,17 @@ export default function OrdineDettaglio() {
     }
   }
 
+  async function copiaLink() {
+    try {
+      await navigator.clipboard.writeText(linkOrdine(ordine!.id))
+      setCopiato(true)
+    } catch {
+      setCopiato(false)
+      document.getElementById('link-ordine')?.focus()
+      setErroreAzione('Non sono riuscito a copiare: seleziona il link qui sopra e copialo a mano.')
+    }
+  }
+
   function togliPagamento(indice: number) {
     if (window.confirm('Rimuovere questo pagamento? Sparirà anche dagli incassi.')) {
       void esegui(() => rimuoviPagamento(ordine!.id, indice))
@@ -124,8 +137,13 @@ export default function OrdineDettaglio() {
 
   return (
     <main className="pagina">
-      <p><Link to="/ordini">← Ordini</Link></p>
+      <div className="solo-stampa intestazione-stampa">
+        <img src="/logo.png" alt="" />
+        <strong>La Bottega di Tata e Gegè</strong>
+      </div>
+      <p className="no-stampa"><Link to="/ordini">← Ordini</Link></p>
       <h1>Ordine n. {ordine.numero}</h1>
+      <p className="solo-stampa">Stato: {ordine.stato}</p>
       <p>
         <Link to={`/clienti/${ordine.clienteId}`}><strong>{ordine.clienteNome}</strong></Link>
         {ordine.clienteTelefono ? ` · ${ordine.clienteTelefono}` : ''} · {ordine.canale}
@@ -167,8 +185,19 @@ export default function OrdineDettaglio() {
           </>
         )}
         <button type="button" className="secondario" onClick={() => void scaricaPdf(vivo)}>Scarica PDF</button>
+        <button type="button" className="secondario" onClick={() => window.print()}>Stampa</button>
       </div>
       {erroreAzione && <p className="errore" role="alert">{erroreAzione}</p>}
+
+      <section className="scheda no-stampa">
+        <label htmlFor="link-ordine">Link dell&apos;ordine (si apre solo dopo il login)</label>
+        <input id="link-ordine" readOnly value={linkOrdine(ordine.id)} onFocus={(e) => e.currentTarget.select()} />
+        <p>
+          <button type="button" className="secondario" onClick={() => void copiaLink()}>Copia link</button>{' '}
+          {copiato && <span role="status">Link copiato</span>}
+        </p>
+      </section>
+      <p className="solo-stampa">Link: {linkOrdine(ordine.id)}</p>
 
       <h2>Pagamenti</h2>
       {ordine.pagamenti.length === 0 && <p>Nessun pagamento registrato.</p>}

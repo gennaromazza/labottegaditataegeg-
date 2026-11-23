@@ -1,32 +1,40 @@
-# React + TypeScript + Vite
+# Gestionale La Bottega di Tata e Gegè
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Web app (PWA) per ordini, clienti (con dati di spedizione), pagamenti/acconti e incassi.
+React + Vite + TypeScript, Firebase (Hosting, Firestore, Authentication).
 
-Currently, two official plugins are available:
+- Progetto Firebase: `labottega-tata-gege`
+- Design: `docs/superpowers/specs/2026-11-23-gestionale-design.md`
+- Piano: `docs/superpowers/plans/2026-11-23-gestionale-bottega.md`
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Comandi
 
-## React Compiler
-
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```powershell
+npm install
+npm run dev          # sviluppo locale (serve .env.local con la config Firebase web)
+npm test             # test dell'app
+npm run build        # build in dist/
+firebase deploy --only hosting     # pubblica l'app
+firebase deploy --only firestore   # pubblica le regole del database
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+`.env.local` (non versionato) contiene le variabili `VITE_FIREBASE_*`; i valori si leggono con
+`firebase apps:sdkconfig WEB <appId> --project labottega-tata-gege`.
+
+## Chi può entrare
+
+Solo gli account email/password creati da noi, e solo le email elencate in `firestore.rules`
+(funzione `autorizzato()`). Per aggiungere una persona:
+
+1. aggiungere la sua email alla lista in `firestore.rules` e pubblicare le regole;
+2. creare l'account (console Firebase > Authentication > Utenti > Aggiungi utente);
+3. farle impostare la password con l'email di reimpostazione (console Firebase > Authentication > menu dell'utente > Reimposta password).
+
+## Test delle regole Firestore
+
+`npm run test:rules` usa l'emulatore Firestore, che richiede **Java** installato.
+
+## Importi e date
+
+Gli importi sono salvati in centesimi (interi). Le date sono stringhe `YYYY-MM-DD`.
+Gli incassi sono contati per data del pagamento, non dell'ordine.

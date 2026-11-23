@@ -110,7 +110,7 @@
 
 **Interfaces:** Consumes `ascoltaClienti`, `creaCliente`, `ascoltaOrdini`. Produces `<SelezionaCliente onScelto={(c: Cliente) => void}>` (cerca per nome/telefono, crea al volo).
 
-- [ ] **Step 1: Test:** ricerca "mar" filtra "Maria Rossi"; crea al volo un cliente con solo il nome (telefono facoltativo); scheda mostra storico ordini e totale speso (somma `versatoCent`).
+- [ ] **Step 1: Test:** il riquadro "Dati di spedizione" nella scheda cliente salva destinatario, indirizzo, CAP (5 cifre), città e provincia (2 lettere) e li mostra ricaricando; CAP o provincia non validi mostrano un errore e non salvano; i campi sono facoltativi; ricerca "mar" filtra "Maria Rossi"; crea al volo un cliente con solo il nome (telefono facoltativo); scheda mostra storico ordini e totale speso (somma `versatoCent`).
 - [ ] **Step 2–4:** FAIL → implementare → PASS. **Step 5:** Commit `feat: clienti`.
 
 ### Task 6: Elenco e creazione ordine

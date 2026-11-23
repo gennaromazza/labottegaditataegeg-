@@ -33,7 +33,7 @@ Due o tre artigiani (candele, segnaposti, lettere e nomi personalizzati, decoraz
 3. Next.js + Cloud Functions: richiede Blaze, eccessivo.
 
 ## Modello dati (Firestore)
-- `clienti/{id}`: nome, telefono (formato internazionale per wa.me), note, creatoIl.
+- `clienti/{id}`: nome, telefono (formato internazionale per wa.me), note, creatoIl, **spedizione** (facoltativa: destinatario se diverso, indirizzo, CAP, città, provincia).
 - `ordini/{id}`: numero progressivo, clienteId + nome/telefono copiati, canale (TikTok | WhatsApp | Instagram | Facebook | Altro), righe[{descrizione, testoPersonalizzato, quantita, prezzoUnitario}], totale, stato (da fare | in lavorazione | pronto | consegnato | annullato), dataConsegna, note, creatoIl, pagamenti[{importo, data, metodo?}].
 - `listino/{id}` (facoltativo): nome, prezzo, attivo.
 - Residuo = totale − somma pagamenti; stato pagamento derivato: non pagato / acconto / saldato. Non si salva, si calcola.
@@ -44,7 +44,7 @@ Due o tre artigiani (candele, segnaposti, lettere e nomi personalizzati, decoraz
 2. Ordini: lista a schede su telefono, tabella su PC; filtri per stato e canale; pulsante grande "Nuovo ordine".
 3. Nuovo/Modifica ordine: cliente (cerca o crea al volo), righe, acconto iniziale, consegna.
 4. Dettaglio ordine: pagamenti (aggiungi), cambia stato, "Invia su WhatsApp", "Scarica PDF".
-5. Clienti: elenco, scheda con storico ordini e totale speso.
+5. Clienti: elenco, scheda con storico ordini e totale speso e un riquadro "Dati di spedizione" modificabile.
 6. Incassi: totale per mese/periodo, per canale e per metodo, residuo complessivo da incassare, grafico semplice.
 7. Listino (secondaria).
 

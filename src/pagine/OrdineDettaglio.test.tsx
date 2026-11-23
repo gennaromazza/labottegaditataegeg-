@@ -11,6 +11,7 @@ const h = vi.hoisted(() => ({
   cliente: null as null | { id: string; nome: string; telefono?: string },
   rimuovi: vi.fn(),
   elimina: vi.fn(),
+  aggiorna: vi.fn(),
 }))
 
 vi.mock('../data/clienti', () => ({
@@ -26,7 +27,7 @@ vi.mock('../data/ordini', () => ({
     cb(h.ordine)
     return () => {}
   },
-  aggiornaOrdine: vi.fn(),
+  aggiornaOrdine: (...a: unknown[]) => h.aggiorna(...a),
   rimuoviPagamento: (...a: unknown[]) => h.rimuovi(...a),
   eliminaOrdine: (...a: unknown[]) => h.elimina(...a),
   aggiungiPagamento: async (_id: string, p: Pagamento) => {
@@ -128,6 +129,80 @@ it('se l\'eliminazione fallisce si vede un errore e l\'ordine resta', async () =
   await userEvent.click(screen.getByRole('button', { name: 'Elimina ordine' }))
   expect(await screen.findByText(/Non sono riuscito a salvare/)).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: 'Ordine n. 7' })).toBeInTheDocument()
+})
+
+describe('stati: senza acconto non si procede', () => {
+  beforeEach(() => {
+    h.aggiorna.mockReset()
+    h.aggiorna.mockResolvedValue(undefined)
+  })
+
+  it('un ordine senza pagamenti non può andare in preparazione', async () => {
+    h.ordine = ordineDiProva()
+    apri()
+    await userEvent.selectOptions(screen.getByLabelText("Stato dell'ordine"), 'in preparazione')
+    expect(await screen.findByText(/Senza un acconto non si procede/, { selector: '[role="alert"]' })).toBeInTheDocument()
+    expect(h.aggiorna).not.toHaveBeenCalled()
+  })
+
+  it('con un acconto si può passare a in preparazione', async () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
+    apri()
+    await userEvent.selectOptions(screen.getByLabelText("Stato dell'ordine"), 'in preparazione')
+    expect(h.aggiorna).toHaveBeenCalledWith('o1', { stato: 'in preparazione' })
+  })
+
+  it('impostando "spedito" si registra anche la data di spedizione', async () => {
+    h.ordine = ordineDiProva({ stato: 'pronto', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
+    apri()
+    await userEvent.selectOptions(screen.getByLabelText("Stato dell'ordine"), 'spedito')
+    expect(h.aggiorna).toHaveBeenCalledWith('o1', { stato: 'spedito', dataSpedizione: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) })
+  })
+
+  it('annullare si può anche senza acconto', async () => {
+    h.ordine = ordineDiProva()
+    apri()
+    await userEvent.selectOptions(screen.getByLabelText("Stato dell'ordine"), 'annullato')
+    expect(h.aggiorna).toHaveBeenCalledWith('o1', { stato: 'annullato' })
+  })
+
+  it('un ordine in attesa mostra l\'avviso, senza pulsanti per avanzare', () => {
+    h.ordine = ordineDiProva()
+    apri()
+    expect(screen.getByText(/non si procede/i, { selector: '.avviso' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Inizia la preparazione|Conferma ordine/ })).not.toBeInTheDocument()
+  })
+
+  it('l\'etichetta dello stato è in italiano corrente', () => {
+    h.ordine = ordineDiProva({ stato: 'pronto', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
+    apri()
+    expect(screen.getAllByText('Pronto da spedire').length).toBeGreaterThan(0)
+  })
+
+  it('un ordine pronto mostra il pannello di spedizione e un link alle Spedizioni', () => {
+    h.ordine = ordineDiProva({ stato: 'pronto', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
+    apri()
+    expect(screen.getByRole('button', { name: 'Segna come spedito' })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Vai alle Spedizioni' })).toHaveAttribute('href', '/spedizioni')
+  })
+
+  it('senza indirizzo di spedizione rimanda alla scheda cliente, con l\'indirizzo lo mostra', () => {
+    h.ordine = ordineDiProva()
+    apri()
+    expect(screen.getByRole('link', { name: /Aggiungilo nella scheda cliente/ })).toHaveAttribute('href', '/clienti/c1')
+  })
+})
+
+it('con l\'indirizzo del cliente lo mostra', () => {
+  h.ordine = ordineDiProva()
+  h.cliente = {
+    id: 'c1',
+    nome: 'Maria Rossi',
+    telefono: '333 1234567',
+    spedizione: { indirizzo: 'Via Roma 1', cap: '81031', citta: 'Aversa', provincia: 'CE' },
+  } as never
+  apri()
+  expect(screen.getByText(/Spedizione a: Via Roma 1, 81031 Aversa \(CE\)/)).toBeInTheDocument()
 })
 
 it('mostra il link dell\'ordine e lo copia', async () => {

@@ -8,6 +8,7 @@ import { ascoltaListino, type VoceListino } from '../data/listino'
 import { oggiISO } from '../data/util'
 import { formatEuro, totaleCent } from '../lib/calcoli'
 import { parseEuro } from '../lib/importi'
+import { statoIniziale } from '../lib/stati'
 import { CANALI, ETICHETTE_METODO, METODI, type Canale, type Cliente, type MetodoPagamento, type Pagamento } from '../lib/tipi'
 
 export default function OrdineForm() {
@@ -57,7 +58,7 @@ export default function OrdineForm() {
         ...(cliente.telefono ? { clienteTelefono: cliente.telefono } : {}),
         canale,
         righe: valide,
-        stato: 'da fare',
+        stato: statoIniziale(pagamenti.reduce((s, p) => s + p.importoCent, 0)),
         ...(consegna ? { dataConsegna: consegna } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
         pagamenti,
@@ -97,6 +98,7 @@ export default function OrdineForm() {
         <section className="scheda">
           <label htmlFor="acconto">Acconto ricevuto (€, facoltativo)</label>
           <input id="acconto" inputMode="decimal" value={acconto} onChange={(e) => setAcconto(e.target.value)} />
+          <p className="nota">Con un acconto l&apos;ordine parte confermato. Senza, resta &quot;in attesa di acconto&quot; e non si procede finché non arriva.</p>
           <label htmlFor="metodo">Metodo dell&apos;acconto</label>
           <select id="metodo" value={metodo} onChange={(e) => setMetodo(e.target.value as MetodoPagamento | '')}>
             <option value="">Non indicato</option>

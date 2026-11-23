@@ -20,7 +20,8 @@
 .menu a.attiva { color: var(--arancio); box-shadow: inset 0 3px 0 var(--arancio); background: #fbf0e0; }
 .menu a:focus-visible, .menu .esci:focus-visible { outline: 3px solid var(--arancio); outline-offset: -3px; }
 .menu-logo { display: none; }
-.menu .esci { display: none; } /* su telefono "Esci" è nella pagina Account */
+.menu a.solo-desktop { display: none; } /* su telefono Spese, Listino e Account stanno sotto "Altro" */
+.menu .esci { display: none; } /* su telefono "Esci" è nella pagina Altro */
 
 /* telefoni molto stretti */
 @media (max-width: 340px) {
@@ -38,6 +39,8 @@
     border-radius: 10px; font-size: 1rem;
   }
   .menu a.attiva { box-shadow: none; background: #f3e2cb; }
+  .menu a.solo-desktop { display: flex; }
+  .menu a.solo-mobile { display: none; }
   .menu-logo { display: block; width: 100%; margin-bottom: 1rem; }
   .menu .esci { display: block; margin: auto 0 0; min-height: 36px; padding: .25rem .6rem; font-size: .85rem; }
   .contenuto { margin-left: 200px; }
@@ -61,4 +64,13 @@
 .barra { height: 10px; border-radius: 6px; background: var(--arancio-chiaro); }
 a.bottone { display: inline-block; text-decoration: none; text-align: center; line-height: 28px; }
 .link-scheda { color: inherit; text-decoration: none; display: block; }
-.azioni { display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0; }
+.azioni { display: flex; gap: .5rem; flex-wrap: wrap; margin: .75rem 0; align-items: center; }
+.nota { color: var(--testo-tenue); font-size: .85rem; margin: .4rem 0 0; }
+.avviso { background: #fff1d6; border: 1px solid #f0c36d; border-radius: 10px; padding: .6rem .8rem; font-weight: 600; }
+.badge.info { background: #e3ecf7; color: #2b5a8a; }
+.badge.spento { background: #e8e4de; color: #6f5f50; }
+a.bottone.secondario-link { background: transparent; color: var(--arancio); border: 2px solid var(--arancio); line-height: 24px; }
+/* schede a scelta (come linguette) */
+.linguette { display: flex; flex-wrap: wrap; gap: .4rem; margin-bottom: .75rem; }
+.linguette button { flex: none; min-height: 44px; background: transparent; color: var(--legno); border: 2px solid var(--bordo); }
+.linguette button[aria-pressed="true"] { background: var(--arancio); color: #fff; border-color: var(--arancio); }

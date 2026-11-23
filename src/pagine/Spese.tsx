@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { Barre } from '../componenti/Barre'
 import { creaSpesa, eliminaSpesa, ascoltaSpese } from '../data/spese'
 import { oggiISO } from '../data/util'
@@ -8,11 +9,11 @@ import { CATEGORIE_SPESA, type CategoriaSpesa, type Spesa } from '../lib/tipi'
 
 const ERRORE = 'Non sono riuscito a salvare. Controlla la connessione e riprova.'
 
-function FormSpesa() {
-  const [descrizione, setDescrizione] = useState('')
+function FormSpesa({ descrizioneIniziale, categoriaIniziale }: { descrizioneIniziale: string; categoriaIniziale: CategoriaSpesa }) {
+  const [descrizione, setDescrizione] = useState(descrizioneIniziale)
   const [importo, setImporto] = useState('')
   const [data, setData] = useState(oggiISO())
-  const [categoria, setCategoria] = useState<CategoriaSpesa>('Materiali')
+  const [categoria, setCategoria] = useState<CategoriaSpesa>(categoriaIniziale)
   const [note, setNote] = useState('')
   const [errore, setErrore] = useState('')
 
@@ -68,6 +69,12 @@ export default function Spese() {
   const [categoria, setCategoria] = useState<CategoriaSpesa | ''>('')
   const [errore, setErrore] = useState('')
 
+  // /spese?categoria=Spedizioni&descrizione=…: il modulo arriva già compilato (per esempio dalla spedizione di un ordine)
+  const [params] = useSearchParams()
+  const categoriaParam = params.get('categoria') ?? ''
+  const categoriaDaLink = (CATEGORIE_SPESA as string[]).includes(categoriaParam) ? (categoriaParam as CategoriaSpesa) : 'Materiali'
+  const descrizioneDaLink = (params.get('descrizione') ?? '').slice(0, 120)
+
   useEffect(() => ascoltaSpese(setSpese), [])
 
   const visibili = speseFiltrate(spese, da, a, categoria || undefined)
@@ -111,7 +118,8 @@ export default function Spese() {
       </section>
       <section className="scheda"><h2>Per categoria</h2><Barre voci={spesePerCategoria(spese, da, a)} vuoto="Nessuna spesa nel periodo." /></section>
 
-      <FormSpesa />
+      <FormSpesa descrizioneIniziale={descrizioneDaLink} categoriaIniziale={categoriaDaLink} />
+      <p><Link to="/incassi">Vedi incassi e utile</Link></p>
 
       <h2>Elenco{categoria ? ` · ${categoria}` : ''}</h2>
       {errore && <p className="errore" role="alert">{errore}</p>}

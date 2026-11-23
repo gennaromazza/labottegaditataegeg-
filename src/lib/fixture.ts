@@ -12,7 +12,7 @@ export function ordineDiProva(extra: Partial<Ordine> = {}): Ordine {
       { descrizione: 'Segnaposto', testoPersonalizzato: 'Mario', quantita: 3, prezzoUnitarioCent: 250 },
       { descrizione: 'Candela', quantita: 1, prezzoUnitarioCent: 1000 },
     ],
-    stato: 'da fare',
+    stato: 'in attesa acconto',
     creatoIl: '2026-11-01',
     pagamenti: [],
     ...extra,

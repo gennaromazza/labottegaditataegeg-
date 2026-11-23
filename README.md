@@ -34,6 +34,17 @@ Solo gli account email/password creati da noi, e solo le email elencate in `fire
 
 `npm run test:rules` usa l'emulatore Firestore, che richiede **Java** installato.
 
+## Stati degli ordini e Spedizioni
+
+Flusso: **in attesa di acconto → confermato → in preparazione → pronto da spedire → spedito → consegnato** (oppure annullato).
+
+- Senza almeno un pagamento registrato l'ordine non procede (regola in `src/lib/stati.ts`). Il primo acconto porta da solo l'ordine a "confermato"; togliendo l'unico acconto di un ordine solo confermato torna "in attesa".
+- Gli ordini creati con i vecchi stati si leggono così: "da fare" diventa "in attesa di acconto" o "confermato" in base ai pagamenti, "in lavorazione" diventa "in preparazione" (nessuna migrazione dei dati).
+- Pagina **Spedizioni** (`/spedizioni`): Da lavorare, Spediti, In attesa di acconto, Consegnati. Note di preparazione, corriere e tracking si inseriscono lì o nel dettaglio ordine.
+- Quando segni "spedito" compare **Avvisa la spedizione su WhatsApp**: apre WhatsApp con il messaggio già scritto (`messaggioSpedizione` in `src/lib/whatsapp.ts`).
+- Collegamenti: `/ordini?stato=…&canale=…&pagamento=da-incassare|saldati`, `/spedizioni?vista=spediti|attesa|consegnati`, `/spese?categoria=Spedizioni&descrizione=…`.
+- Menu su telefono: Ordini, Spedizioni, Clienti, Incassi, Altro (Spese, Listino, Account, Esci). Su PC la barra laterale mostra tutto.
+
 ## Spese, utile, stampa, link
 
 - **Spese**: pagina `/spese` con categorie (tra cui Spedizioni e Rimborsi), filtro per periodo e categoria e il totale delle spedizioni.

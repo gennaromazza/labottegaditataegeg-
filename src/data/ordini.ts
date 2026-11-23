@@ -1,11 +1,19 @@
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, runTransaction, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
+import { normalizzaStato, statoDopoNuovoPagamento, statoDopoRimozionePagamento } from '../lib/stati'
 import type { Ordine, Pagamento } from '../lib/tipi'
 import { oggiISO, senzaUndefined } from './util'
 
 type NuovoOrdine = Omit<Ordine, 'id' | 'numero' | 'creatoIl'>
 
-const daDoc = (id: string, d: object) => ({ id, ...(d as Omit<Ordine, 'id'>) }) as Ordine
+/** Legge un ordine; gli stati vecchi ("da fare", "in lavorazione") vengono tradotti in quelli nuovi. */
+const daDoc = (id: string, d: object): Ordine => {
+  const o = { id, ...(d as Omit<Ordine, 'id'>) } as Ordine
+  const versato = (o.pagamenti ?? []).reduce((s, p) => s + p.importoCent, 0)
+  return { ...o, pagamenti: o.pagamenti ?? [], stato: normalizzaStato(o.stato as string, versato) }
+}
+
+const somma = (p: Pagamento[]) => p.reduce((s, x) => s + x.importoCent, 0)
 
 /** Il numero ordine è progressivo e assegnato in transazione: mai duplicato. */
 export async function creaOrdine(dati: NuovoOrdine): Promise<Ordine> {
@@ -31,7 +39,10 @@ export async function aggiungiPagamento(id: string, p: Pagamento): Promise<void>
   await runTransaction(db, async (tx) => {
     const snap = await tx.get(ref)
     const attuali = (snap.data()?.pagamenti as Pagamento[] | undefined) ?? []
-    tx.update(ref, { pagamenti: [...attuali, senzaUndefined(p)] })
+    const nuovi = [...attuali, senzaUndefined(p)]
+    // il primo acconto conferma l'ordine che stava aspettando
+    const stato = statoDopoNuovoPagamento(String(snap.data()?.stato ?? ''), somma(nuovi))
+    tx.update(ref, { pagamenti: nuovi, ...(stato ? { stato } : {}) })
   })
 }
 
@@ -45,7 +56,9 @@ export async function rimuoviPagamento(id: string, pagamento: Pagamento): Promis
       (x) => x.importoCent === pagamento.importoCent && x.data === pagamento.data && x.metodo === pagamento.metodo,
     )
     if (posizione < 0) return // già rimosso da un altro utente
-    tx.update(ref, { pagamenti: attuali.filter((_, i) => i !== posizione) })
+    const rimasti = attuali.filter((_, i) => i !== posizione)
+    const stato = statoDopoRimozionePagamento(String(snap.data()?.stato ?? ''), somma(rimasti))
+    tx.update(ref, { pagamenti: rimasti, ...(stato ? { stato } : {}) })
   })
 }
 

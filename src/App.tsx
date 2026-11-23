@@ -11,6 +11,8 @@ import ClienteScheda from './pagine/ClienteScheda'
 import Incassi from './pagine/Incassi'
 import Spese from './pagine/Spese'
 import Account from './pagine/Account'
+import Spedizioni from './pagine/Spedizioni'
+import Altro from './pagine/Altro'
 import Listino from './pagine/Listino'
 
 export default function App() {
@@ -28,6 +30,8 @@ export default function App() {
             <Route path="/incassi" element={<Incassi />} />
             <Route path="/spese" element={<Spese />} />
             <Route path="/account" element={<Account />} />
+            <Route path="/spedizioni" element={<Spedizioni />} />
+            <Route path="/altro" element={<Altro />} />
             <Route path="/listino" element={<Listino />} />
           </Route>
         </Route>

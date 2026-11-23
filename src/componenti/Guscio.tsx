@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import { NavLink, Outlet } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
 
 const ICONE: Record<string, ReactNode> = {
@@ -42,25 +42,52 @@ const ICONE: Record<string, ReactNode> = {
       <path d="M4 21a8 8 0 0 1 16 0" />
     </>
   ),
+  spedizioni: (
+    <>
+      <path d="M3 7h11v10H3z" />
+      <path d="M14 10h4l3 3v4h-7z" />
+      <circle cx="7.5" cy="18" r="1.8" />
+      <circle cx="17.5" cy="18" r="1.8" />
+    </>
+  ),
+  altro: (
+    <>
+      <circle cx="5" cy="12" r="1.6" />
+      <circle cx="12" cy="12" r="1.6" />
+      <circle cx="19" cy="12" r="1.6" />
+    </>
+  ),
 }
 
-const VOCI = [
+// "solo" decide dove compare la voce: sul telefono la barra ha 5 voci e "Altro" raccoglie il resto; su PC si vede tutto.
+const VOCI: { a: string; t: string; i: string; solo?: 'desktop' | 'mobile'; figlie?: string[] }[] = [
   { a: '/ordini', t: 'Ordini', i: 'ordini' },
+  { a: '/spedizioni', t: 'Spedizioni', i: 'spedizioni' },
   { a: '/clienti', t: 'Clienti', i: 'clienti' },
   { a: '/incassi', t: 'Incassi', i: 'incassi' },
-  { a: '/spese', t: 'Spese', i: 'spese' },
-  { a: '/listino', t: 'Listino', i: 'listino' },
-  { a: '/account', t: 'Account', i: 'account' },
+  { a: '/spese', t: 'Spese', i: 'spese', solo: 'desktop' },
+  { a: '/listino', t: 'Listino', i: 'listino', solo: 'desktop' },
+  { a: '/account', t: 'Account', i: 'account', solo: 'desktop' },
+  { a: '/altro', t: 'Altro', i: 'altro', solo: 'mobile', figlie: ['/spese', '/listino', '/account'] },
 ]
 
 export function Guscio() {
   const { esci } = useAuth()
+  const { pathname } = useLocation()
   return (
     <div className="guscio">
       <nav className="menu" aria-label="Menu principale">
         <img src="/logo.png" alt="La Bottega di Tata e Gegè" className="menu-logo" />
         {VOCI.map((v) => (
-          <NavLink key={v.a} to={v.a} className={({ isActive }) => (isActive ? 'attiva' : '')}>
+          <NavLink
+            key={v.a}
+            to={v.a}
+            className={({ isActive }) =>
+              [isActive || v.figlie?.some((f) => pathname.startsWith(f)) ? 'attiva' : '', v.solo ? `solo-${v.solo}` : '']
+                .filter(Boolean)
+                .join(' ')
+            }
+          >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
               {ICONE[v.i]}
             </svg>

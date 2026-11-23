@@ -1,4 +1,4 @@
-import { linkWhatsApp, messaggioOrdine, normalizzaTelefono } from './whatsapp'
+import { linkSpedizione, linkWhatsApp, messaggioOrdine, messaggioSpedizione, normalizzaTelefono } from './whatsapp'
 import { ordineDiProva } from './fixture'
 
 describe('normalizzaTelefono', () => {
@@ -43,6 +43,51 @@ describe('messaggioOrdine: riga del residuo', () => {
   })
   it('saldato', () => expect(messaggioOrdine(ordineDiProva({ pagamenti: [pag(1750)] }))).toContain('Saldato'))
   it('annullato', () => expect(messaggioOrdine(ordineDiProva({ stato: 'annullato' }))).toContain('Ordine annullato'))
+})
+
+describe('messaggioSpedizione', () => {
+  const indirizzo = { destinatario: 'Anna Rossi', indirizzo: 'Via Roma 1', cap: '81031', citta: 'Aversa', provincia: 'CE' }
+  const spedito = (extra = {}) => ordineDiProva({ stato: 'spedito', pagamenti: [{ importoCent: 1750, data: '2026-11-05' }], ...extra })
+
+  it('è un messaggio cordiale con nome, numero ordine e prodotti', () => {
+    const m = messaggioSpedizione(spedito())
+    expect(m).toContain('Ciao Maria Rossi')
+    expect(m).toContain('ordine n. 7')
+    expect(m).toContain('spedito')
+    expect(m).toContain('3 × Segnaposto (Mario)')
+    expect(m).toContain('La Bottega di Tata e Gegè')
+    expect(m).toMatch(/Grazie/)
+  })
+  it('include corriere e codice di tracciamento se presenti', () => {
+    const m = messaggioSpedizione(spedito({ corriere: 'GLS', tracking: 'AB123456' }))
+    expect(m).toContain('Corriere: GLS')
+    expect(m).toContain('AB123456')
+  })
+  it('senza corriere né tracking non lascia righe vuote o "undefined"', () => {
+    const m = messaggioSpedizione(spedito())
+    expect(m).not.toMatch(/undefined|Corriere|tracciamento/)
+  })
+  it('indica dove arriva se l\'indirizzo è noto', () => {
+    const m = messaggioSpedizione(spedito(), indirizzo)
+    expect(m).toContain('Anna Rossi, Via Roma 1, 81031 Aversa (CE)')
+    expect(messaggioSpedizione(spedito())).not.toContain('Via Roma')
+  })
+  it('ricorda il saldo solo se resta qualcosa da pagare', () => {
+    expect(messaggioSpedizione(spedito())).not.toMatch(/saldo|da saldare/i)
+    const conResiduo = messaggioSpedizione(spedito({ pagamenti: [{ importoCent: 500, data: '2026-11-05' }] }))
+    expect(conResiduo).toContain('12,50')
+  })
+})
+
+describe('linkSpedizione', () => {
+  it('apre WhatsApp sul telefono del cliente con il testo codificato', () => {
+    const url = linkSpedizione(ordineDiProva({ stato: 'spedito', clienteTelefono: '333 123-4567', righe: [{ descrizione: 'Nome & Co', quantita: 1, prezzoUnitarioCent: 100 }] }))!
+    expect(url.startsWith('https://wa.me/393331234567?text=')).toBe(true)
+    expect(url.split('?text=')[1]).toContain('%26')
+  })
+  it('senza telefono non c\'è link', () => {
+    expect(linkSpedizione(ordineDiProva({ clienteTelefono: undefined }))).toBeNull()
+  })
 })
 
 describe('linkWhatsApp', () => {

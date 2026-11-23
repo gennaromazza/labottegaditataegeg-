@@ -1,5 +1,5 @@
 import { formatData, formatEuro, residuoCent, totaleCent, versatoCent } from './calcoli'
-import type { Ordine } from './tipi'
+import type { Ordine, Spedizione } from './tipi'
 
 export function normalizzaTelefono(raw: string, prefisso = '39'): string | null {
   const pulito = raw.trim().replace(/[^\d+]/g, '')
@@ -43,6 +43,39 @@ export function messaggioOrdine(o: Ordine): string {
   if (o.dataConsegna) parti.push(`Consegna prevista: ${formatData(o.dataConsegna)}`)
   parti.push('', 'Grazie! 🧡')
   return parti.join('\n')
+}
+
+export function testoIndirizzo(s: Spedizione): string {
+  return `${s.destinatario ? `${s.destinatario}, ` : ''}${s.indirizzo}, ${s.cap} ${s.citta} (${s.provincia})`
+}
+
+/** Avviso al cliente quando l'ordine parte. */
+export function messaggioSpedizione(o: Ordine, indirizzo?: Spedizione): string {
+  const prodotti = o.righe.map((r) => {
+    const testo = r.testoPersonalizzato ? ` (${r.testoPersonalizzato})` : ''
+    return `• ${r.quantita} × ${r.descrizione}${testo}`
+  })
+  const parti = [
+    `Ciao ${o.clienteNome}! 🎁`,
+    `Una bella notizia: il tuo ordine n. ${o.numero} è stato spedito! 📦`,
+    '',
+    ...prodotti,
+  ]
+  const dettagli: string[] = []
+  if (o.corriere) dettagli.push(`Corriere: ${o.corriere}`)
+  if (o.tracking) dettagli.push(`Codice di tracciamento: ${o.tracking}`)
+  if (indirizzo) dettagli.push(`Arriverà a: ${testoIndirizzo(indirizzo)}`)
+  if (dettagli.length > 0) parti.push('', ...dettagli)
+  const residuo = residuoCent(o)
+  if (residuo > 0) parti.push('', `Ti ricordo che restano da saldare ${formatEuro(residuo)}. Ci mettiamo d'accordo con calma! 😊`)
+  parti.push('', 'Grazie di cuore per aver scelto La Bottega di Tata e Gegè! 🧡', 'Facci sapere quando lo ricevi: ci fa sempre tanto piacere.')
+  return parti.join('\n')
+}
+
+export function linkSpedizione(o: Ordine, indirizzo?: Spedizione): string | null {
+  const numero = o.clienteTelefono ? normalizzaTelefono(o.clienteTelefono) : null
+  if (!numero) return null
+  return `https://wa.me/${numero}?text=${encodeURIComponent(messaggioSpedizione(o, indirizzo))}`
 }
 
 export function linkWhatsApp(o: Ordine): string | null {

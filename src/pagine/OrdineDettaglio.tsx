@@ -8,8 +8,11 @@ import { formatData, formatEuro, residuoCent, totaleCent, versatoCent } from '..
 import { parseEuro } from '../lib/importi'
 import { linkOrdine } from '../lib/link'
 import { generaPdfOrdine } from '../lib/pdf'
-import { linkWhatsApp } from '../lib/whatsapp'
-import { ETICHETTE_METODO, METODI, STATI, type Cliente, type MetodoPagamento, type Ordine, type Pagamento, type StatoOrdine } from '../lib/tipi'
+import { linkWhatsApp, testoIndirizzo } from '../lib/whatsapp'
+import { AvanzamentoOrdine } from '../componenti/AvanzamentoOrdine'
+import { BadgeStato } from '../componenti/BadgeStato'
+import { puoCambiareStato } from '../lib/stati'
+import { ETICHETTE_METODO, ETICHETTE_STATO, METODI, STATI, type Cliente, type MetodoPagamento, type Ordine, type Pagamento, type StatoOrdine } from '../lib/tipi'
 
 const ERRORE_SCRITTURA = 'Non sono riuscito a salvare. Controlla la connessione e riprova.'
 
@@ -128,6 +131,20 @@ export default function OrdineDettaglio() {
     })
   }
 
+  function cambiaStato(nuovo: StatoOrdine) {
+    const esito = puoCambiareStato(ordine!, nuovo)
+    if (!esito.ok) {
+      setErroreAzione(esito.motivo)
+      return
+    }
+    void esegui(() =>
+      aggiornaOrdine(ordine!.id, {
+        stato: nuovo,
+        ...(nuovo === 'spedito' && !ordine!.dataSpedizione ? { dataSpedizione: oggiISO() } : {}),
+      }),
+    )
+  }
+
   function togliPagamento(p: Pagamento) {
     if (window.confirm('Rimuovere questo pagamento? Sparirà anche dagli incassi.')) {
       void esegui(() => rimuoviPagamento(ordine!.id, p))
@@ -157,17 +174,33 @@ export default function OrdineDettaglio() {
       </div>
       <p className="no-stampa"><Link to="/ordini">← Ordini</Link></p>
       <h1>Ordine n. {ordine.numero}</h1>
-      <p className="solo-stampa">Stato: {ordine.stato}</p>
+      <p className="solo-stampa">Stato: {ETICHETTE_STATO[ordine.stato]}</p>
       <p>
         <Link to={`/clienti/${ordine.clienteId}`}><strong>{ordine.clienteNome}</strong></Link>
         {ordine.clienteTelefono ? ` · ${ordine.clienteTelefono}` : ''} · {ordine.canale}
         {ordine.dataConsegna ? ` · consegna ${formatData(ordine.dataConsegna)}` : ''}
       </p>
 
-      <label htmlFor="stato">Stato dell&apos;ordine</label>
-      <select id="stato" value={ordine.stato} onChange={(e) => void esegui(() => aggiornaOrdine(ordine.id, { stato: e.target.value as StatoOrdine }))}>
-        {STATI.map((s) => <option key={s}>{s}</option>)}
+      <p className="no-stampa">
+        {cliente?.spedizione ? (
+          <>Spedizione a: {testoIndirizzo(cliente.spedizione)}</>
+        ) : (
+          <>Nessun indirizzo di spedizione. <Link to={`/clienti/${ordine.clienteId}`}>Aggiungilo nella scheda cliente</Link></>
+        )}
+      </p>
+      {ordine.notePreparazione && <p className="solo-stampa">Preparazione: {ordine.notePreparazione}</p>}
+
+      <div className="riga no-stampa">
+        <BadgeStato stato={ordine.stato} />
+        <Link to="/spedizioni">Vai alle Spedizioni</Link>
+      </div>
+      <label htmlFor="stato" className="no-stampa">Stato dell&apos;ordine</label>
+      <select id="stato" className="no-stampa" value={ordine.stato} onChange={(e) => cambiaStato(e.target.value as StatoOrdine)}>
+        {STATI.map((s) => <option key={s} value={s}>{ETICHETTE_STATO[s]}</option>)}
       </select>
+      <section className="scheda no-stampa" style={{ marginTop: '1rem' }} aria-label="Avanzamento">
+        <AvanzamentoOrdine key={ordine.id} ordine={vivo} indirizzo={cliente?.spedizione} />
+      </section>
 
       <section className="scheda" style={{ marginTop: '1rem' }}>
         {ordine.righe.map((r, i) => (

@@ -1,9 +1,33 @@
 export type Canale = 'TikTok' | 'WhatsApp' | 'Instagram' | 'Facebook' | 'Altro'
-export type StatoOrdine = 'da fare' | 'in lavorazione' | 'pronto' | 'consegnato' | 'annullato'
+export type StatoOrdine =
+  | 'in attesa acconto'
+  | 'confermato'
+  | 'in preparazione'
+  | 'pronto'
+  | 'spedito'
+  | 'consegnato'
+  | 'annullato'
 export type MetodoPagamento = 'contanti' | 'bonifico' | 'paypal' | 'altro'
 
 export const CANALI: Canale[] = ['TikTok', 'WhatsApp', 'Instagram', 'Facebook', 'Altro']
-export const STATI: StatoOrdine[] = ['da fare', 'in lavorazione', 'pronto', 'consegnato', 'annullato']
+export const STATI: StatoOrdine[] = [
+  'in attesa acconto',
+  'confermato',
+  'in preparazione',
+  'pronto',
+  'spedito',
+  'consegnato',
+  'annullato',
+]
+export const ETICHETTE_STATO: Record<StatoOrdine, string> = {
+  'in attesa acconto': 'In attesa di acconto',
+  confermato: 'Confermato',
+  'in preparazione': 'In preparazione',
+  pronto: 'Pronto da spedire',
+  spedito: 'Spedito',
+  consegnato: 'Consegnato',
+  annullato: 'Annullato',
+}
 export const METODI: MetodoPagamento[] = ['contanti', 'bonifico', 'paypal', 'altro']
 export const ETICHETTE_METODO: Record<MetodoPagamento, string> = {
   contanti: 'Contanti',
@@ -46,6 +70,10 @@ export interface Ordine {
   canale: Canale
   righe: Riga[]
   stato: StatoOrdine
+  notePreparazione?: string
+  corriere?: string
+  tracking?: string
+  dataSpedizione?: string // YYYY-MM-DD
   dataConsegna?: string
   note?: string
   creatoIl: string

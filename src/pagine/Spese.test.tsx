@@ -1,5 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
+import { MemoryRouter } from 'react-router-dom'
 import Spese from './Spese'
 
 const h = vi.hoisted(() => ({ crea: vi.fn(), elimina: vi.fn() }))
@@ -17,6 +18,25 @@ vi.mock('../data/spese', () => ({
   eliminaSpesa: (...a: unknown[]) => h.elimina(...a),
 }))
 
+function apri(percorso = '/spese') {
+  return render(
+    <MemoryRouter initialEntries={[percorso]}>
+      <Spese />
+    </MemoryRouter>,
+  )
+}
+
+it('arrivando da una spedizione il modulo è già compilato', () => {
+  apri('/spese?categoria=Spedizioni&descrizione=Spedizione%20ordine%20n.%207')
+  expect(screen.getByLabelText('Cosa hai pagato')).toHaveValue('Spedizione ordine n. 7')
+  expect(screen.getByLabelText('Categoria', { selector: '#sp-cat' })).toHaveValue('Spedizioni')
+})
+
+it('una categoria sconosciuta nel link non rompe il modulo', () => {
+  apri('/spese?categoria=Boh')
+  expect(screen.getByLabelText('Categoria', { selector: '#sp-cat' })).toHaveValue('Materiali')
+})
+
 function periodo(da: string, a: string) {
   fireEvent.change(screen.getByLabelText('Dal'), { target: { value: da } })
   fireEvent.change(screen.getByLabelText('Al'), { target: { value: a } })
@@ -30,7 +50,7 @@ beforeEach(() => {
 })
 
 it('totale spese e totale spedizioni del periodo', () => {
-  render(<Spese />)
+  apri()
   periodo('2026-11-01', '2026-11-30')
   expect(screen.getByTestId('totale-spese').textContent).toMatch(/25,90/)
   expect(screen.getByTestId('totale-spedizioni').textContent).toMatch(/5,90/)
@@ -39,7 +59,7 @@ it('totale spese e totale spedizioni del periodo', () => {
 })
 
 it('il filtro per categoria restringe l\'elenco ma non il totale delle spedizioni', async () => {
-  render(<Spese />)
+  apri()
   periodo('2026-11-01', '2026-12-31')
   await userEvent.selectOptions(screen.getByLabelText('Categoria', { selector: '#spe-cat' }), 'Spedizioni')
   expect(screen.getByText('Corriere GLS')).toBeInTheDocument()
@@ -48,7 +68,7 @@ it('il filtro per categoria restringe l\'elenco ma non il totale delle spedizion
 })
 
 it('registra una nuova spesa', async () => {
-  render(<Spese />)
+  apri()
   await userEvent.type(screen.getByLabelText('Cosa hai pagato'), 'Scatole')
   await userEvent.type(screen.getByLabelText('Importo (€)'), '12,50')
   await userEvent.selectOptions(screen.getByLabelText('Categoria', { selector: '#sp-cat' }), 'Imballaggi')
@@ -59,7 +79,7 @@ it('registra una nuova spesa', async () => {
 })
 
 it('descrizione o importo mancanti non salvano', async () => {
-  render(<Spese />)
+  apri()
   await userEvent.click(screen.getByRole('button', { name: 'Aggiungi spesa' }))
   expect(await screen.findByText('Scrivi cosa hai pagato')).toBeInTheDocument()
   await userEvent.type(screen.getByLabelText('Cosa hai pagato'), 'Scatole')
@@ -70,7 +90,7 @@ it('descrizione o importo mancanti non salvano', async () => {
 })
 
 it('elimina solo dopo la conferma', async () => {
-  render(<Spese />)
+  apri()
   periodo('2026-11-01', '2026-11-30')
   const conferma = vi.spyOn(window, 'confirm')
   conferma.mockReturnValueOnce(false)

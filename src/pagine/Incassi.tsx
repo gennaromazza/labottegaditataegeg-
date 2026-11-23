@@ -63,6 +63,7 @@ export default function Incassi() {
       <section className="scheda">
         <div>Ancora da incassare (ordini non annullati)</div>
         <h2 data-testid="da-incassare">{formatEuro(daIncassare)}</h2>
+        {daIncassare > 0 && <Link to="/ordini?pagamento=da-incassare">Vedi gli ordini da incassare</Link>}
       </section>
 
       {rimborsi.length > 0 && (

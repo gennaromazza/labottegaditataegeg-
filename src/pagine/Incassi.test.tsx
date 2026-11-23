@@ -76,6 +76,11 @@ it('cambiando periodo i numeri cambiano', () => {
   expect(screen.getByTestId('totale-periodo').textContent).toMatch(/3,00/)
 })
 
+it('dal residuo si arriva agli ordini ancora da incassare', () => {
+  apri()
+  expect(screen.getByRole('link', { name: 'Vedi gli ordini da incassare' })).toHaveAttribute('href', '/ordini?pagamento=da-incassare')
+})
+
 it('segnala i rimborsi da fare', () => {
   apri()
   expect(screen.getByText('Da rimborsare')).toBeInTheDocument()

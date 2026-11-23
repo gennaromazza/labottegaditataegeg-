@@ -30,9 +30,11 @@ function chiediNascosta(domanda) {
 }
 
 function firebase(args) {
-  const r = spawnSync('firebase', [...args, '--project', PROGETTO], { encoding: 'utf8', shell: true })
+  // stdin chiuso e modalità non interattiva: la CLI non deve mai restare in attesa di una risposta
+  const comando = ['firebase', ...args, '--project', PROGETTO, '--non-interactive'].join(' ')
+  const r = spawnSync(comando, { encoding: 'utf8', shell: true, stdio: ['ignore', 'pipe', 'pipe'], timeout: 120000 })
   if (r.status !== 0) {
-    console.error((r.stdout || '') + (r.stderr || ''))
+    console.error((r.stdout || '') + (r.stderr || '') + (r.error ? String(r.error) : ''))
     process.exit(1)
   }
 }
@@ -41,6 +43,7 @@ function firebase(args) {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'bottega-pwd-'))
   try {
     const esportato = path.join(tmp, 'utenti.json')
+    console.log('Leggo gli utenti da Firebase (può volerci qualche secondo)...')
     firebase(['auth:export', `"${esportato}"`, '--format=JSON'])
     const utente = JSON.parse(fs.readFileSync(esportato, 'utf8')).users.find((u) => (u.email || '').toLowerCase() === email)
     if (!utente) {
@@ -67,7 +70,8 @@ function firebase(args) {
         ],
       }),
     )
-    firebase(['auth:import', `"${file}"`, '--hash-algo=BCRYPT'])
+    console.log('Aggiorno la password...')
+    firebase(['auth:import',`"${file}"`, '--hash-algo=BCRYPT'])
     console.log('Password aggiornata. Ora puoi accedere all\'app.')
   } catch (e) {
     console.error(e.message)

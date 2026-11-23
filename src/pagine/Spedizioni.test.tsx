@@ -1,11 +1,12 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
+import { ArticoliProvider } from '../componenti/ArticoliContext'
 import Spedizioni from './Spedizioni'
 import { ordineDiProva } from '../lib/fixture'
 import type { Cliente, Ordine } from '../lib/tipi'
 
-const h = vi.hoisted(() => ({ ordini: [] as Ordine[], clienti: [] as Cliente[], aggiorna: vi.fn() }))
+const h = vi.hoisted(() => ({ ordini: [] as Ordine[], clienti: [] as Cliente[], aggiorna: vi.fn(), cambia: vi.fn(), articoli: [] as unknown[] }))
 
 vi.mock('../data/ordini', () => ({
   ascoltaOrdini: (cb: (o: Ordine[]) => void) => {
@@ -13,6 +14,13 @@ vi.mock('../data/ordini', () => ({
     return () => {}
   },
   aggiornaOrdine: (...a: unknown[]) => h.aggiorna(...a),
+  cambiaStatoOrdine: (...a: unknown[]) => h.cambia(...a),
+}))
+vi.mock('../data/magazzino', () => ({
+  ascoltaArticoli: (cb: (a: unknown[]) => void) => {
+    cb(h.articoli)
+    return () => {}
+  },
 }))
 vi.mock('../data/clienti', () => ({
   ascoltaClienti: (cb: (c: Cliente[]) => void) => {
@@ -26,6 +34,8 @@ const pag = [{ importoCent: 500, data: '2026-11-05' }]
 beforeEach(() => {
   h.aggiorna.mockReset()
   h.aggiorna.mockResolvedValue(undefined)
+  h.cambia.mockReset()
+  h.cambia.mockResolvedValue(undefined)
   h.clienti = [
     {
       id: 'c1',
@@ -87,7 +97,7 @@ describe('Da lavorare', () => {
   it('un confermato passa in preparazione con un tocco', async () => {
     apri()
     await userEvent.click(screen.getByRole('button', { name: 'Inizia la preparazione' }))
-    expect(h.aggiorna).toHaveBeenCalledWith('o1', { stato: 'in preparazione' })
+    expect(h.cambia).toHaveBeenCalledWith('o1', 'in preparazione', { procediComunque: false, extra: undefined })
   })
 
   it('le note di preparazione si salvano', async () => {
@@ -103,7 +113,7 @@ describe('Da lavorare', () => {
   it('un in preparazione passa a pronto', async () => {
     apri()
     await userEvent.click(screen.getByRole('button', { name: 'Segna come pronto' }))
-    expect(h.aggiorna).toHaveBeenCalledWith('o2', { stato: 'pronto' })
+    expect(h.cambia).toHaveBeenCalledWith('o2', 'pronto', { procediComunque: false, extra: undefined })
   })
 
   it('un pronto si segna spedito con corriere e tracking', async () => {
@@ -134,7 +144,7 @@ describe('Da lavorare', () => {
   })
 
   it('un errore di salvataggio si vede', async () => {
-    h.aggiorna.mockImplementation(async () => {
+    h.cambia.mockImplementation(async () => {
       throw new Error('offline')
     })
     apri()
@@ -188,7 +198,7 @@ describe('Spediti', () => {
   it('si segna consegnato', async () => {
     apri('/spedizioni?vista=spediti')
     await userEvent.click(screen.getByRole('button', { name: 'Segna come consegnato' }))
-    expect(h.aggiorna).toHaveBeenCalledWith('o4', { stato: 'consegnato' })
+    expect(h.cambia).toHaveBeenCalledWith('o4', 'consegnato', { procediComunque: false, extra: undefined })
   })
 })
 
@@ -262,10 +272,10 @@ describe('con molti ordini la pagina resta compatta', () => {
     apri()
     await userEvent.click(gruppo(/In preparazione/))
     await userEvent.click(within(screen.getByRole('article', { name: 'Ordine 23' })).getByRole('button', { name: 'Segna come pronto' }))
-    expect(h.aggiorna).toHaveBeenCalledWith('r1', { stato: 'pronto' })
+    expect(h.cambia).toHaveBeenCalledWith('r1', 'pronto', { procediComunque: false, extra: undefined })
     await userEvent.click(gruppo(/Da preparare/))
     await userEvent.click(within(screen.getByRole('article', { name: 'Ordine 25' })).getByRole('button', { name: 'Inizia la preparazione' }))
-    expect(h.aggiorna).toHaveBeenCalledWith('c1', { stato: 'in preparazione' })
+    expect(h.cambia).toHaveBeenCalledWith('c1', 'in preparazione', { procediComunque: false, extra: undefined })
   })
 
   it('per un pronto non esiste il passo rapido: serve il corriere, quindi si apre la scheda', () => {
@@ -276,7 +286,7 @@ describe('con molti ordini la pagina resta compatta', () => {
 
   it('un errore del passo rapido si vede', async () => {
     molti()
-    h.aggiorna.mockImplementation(async () => {
+    h.cambia.mockImplementation(async () => {
       throw new Error('offline')
     })
     apri()
@@ -303,5 +313,72 @@ describe('con molti ordini la pagina resta compatta', () => {
   it("c'è il collegamento all'elenco completo degli ordini", () => {
     apri()
     expect(screen.getByRole('link', { name: 'Vedi tutti gli ordini' })).toHaveAttribute('href', '/ordini')
+  })
+})
+
+describe('materiali della ricetta', () => {
+  const filamento = { id: 'fil', nome: 'Filamento PLA', tipo: 'materiale', unita: 'kg', giacenza: 300, attivo: true }
+  const segnaposto = {
+    id: 'seg',
+    nome: 'Segnaposto 3D',
+    tipo: 'prodotto',
+    unita: 'pezzi',
+    giacenza: 0,
+    prezzoCent: 250,
+    attivo: true,
+    ricetta: [{ articoloId: 'fil', quantita: 18 }],
+  }
+  const conRicette = (quantita: number) => {
+    h.articoli = [filamento, segnaposto]
+    h.ordini = [
+      ordineDiProva({
+        id: 'm1',
+        numero: 50,
+        stato: 'confermato',
+        pagamenti: pag,
+        righe: [{ articoloId: 'seg', descrizione: 'Segnaposto 3D', quantita, prezzoUnitarioCent: 250 }],
+      }),
+    ]
+    return render(
+      <MemoryRouter>
+        <ArticoliProvider>
+          <Spedizioni />
+        </ArticoliProvider>
+      </MemoryRouter>,
+    )
+  }
+
+  it('la scheda dice cosa serve e se basta', () => {
+    conRicette(10)
+    expect(screen.getByText(/Materiali che serviranno:/).parentElement).toHaveTextContent('Filamento PLA 180 g')
+    expect(screen.getByText("In magazzino ce n'è abbastanza.")).toBeInTheDocument()
+  })
+
+  it('se i materiali bastano il passo rapido cambia stato subito', async () => {
+    conRicette(10)
+    await userEvent.click(screen.getByRole('button', { name: 'Inizia la preparazione' }))
+    expect(h.cambia).toHaveBeenCalledWith('m1', 'in preparazione', { procediComunque: false, extra: undefined })
+  })
+
+  it('se mancano compare l\'avviso con le quantità, e non si cambia stato', async () => {
+    conRicette(30)
+    await userEvent.click(screen.getByRole('button', { name: 'Inizia la preparazione' }))
+    expect(h.cambia).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Filamento PLA: servono 540 g, ne hai 300 g')
+  })
+
+  it('"Procedi comunque" cambia stato scalando quanto c\'è', async () => {
+    conRicette(30)
+    await userEvent.click(screen.getByRole('button', { name: 'Inizia la preparazione' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Procedi comunque' }))
+    expect(h.cambia).toHaveBeenCalledWith('m1', 'in preparazione', { procediComunque: true, extra: undefined })
+  })
+
+  it('"Ferma, riordino" lascia l\'ordine com\'è', async () => {
+    conRicette(30)
+    await userEvent.click(screen.getByRole('button', { name: 'Inizia la preparazione' }))
+    await userEvent.click(screen.getByRole('button', { name: 'Ferma, riordino' }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(h.cambia).not.toHaveBeenCalled()
   })
 })

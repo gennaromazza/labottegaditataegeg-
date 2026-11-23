@@ -52,6 +52,27 @@ export interface Articolo {
   prezzoCent?: number // prezzo di vendita: solo per i Prodotti
   attivo: boolean
   note?: string
+  ricetta?: IngredienteRicetta[] // solo per i Prodotti: i Materiali che servono per farne un pezzo
+}
+
+/** Un ingrediente della ricetta: quantità in unità BASE del materiale (g, ml, cm, pezzi) per UN pezzo di prodotto. */
+export interface IngredienteRicetta {
+  articoloId: string
+  quantita: number
+}
+
+/** Cosa è stato scalato dal magazzino per un ordine. `necessaria - scalata` = quanto mancava. */
+export interface VoceScarico {
+  articoloId: string
+  nome: string
+  unita: Unita
+  necessaria: number
+  scalata: number
+}
+
+export interface ScaricoMagazzino {
+  data: string // YYYY-MM-DD
+  voci: VoceScarico[]
 }
 
 export type TipoMovimento = 'carico' | 'scarico' | 'rettifica'
@@ -83,6 +104,7 @@ export interface Spesa {
 }
 
 export interface Riga {
+  articoloId?: string // il Prodotto del magazzino da cui nasce la riga (serve per la ricetta); assente se scritta a mano
   descrizione: string
   testoPersonalizzato?: string
   quantita: number
@@ -108,6 +130,7 @@ export interface Ordine {
   corriere?: string
   tracking?: string
   dataSpedizione?: string // YYYY-MM-DD
+  scaricoMagazzino?: ScaricoMagazzino // presente se i materiali sono già stati scalati
   dataConsegna?: string
   note?: string
   creatoIl: string

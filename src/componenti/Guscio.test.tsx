@@ -4,6 +4,7 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { Guscio } from './Guscio'
 
 const h = vi.hoisted(() => ({ esci: vi.fn() }))
+vi.mock('../data/magazzino', () => ({ ascoltaArticoli: () => () => {} }))
 vi.mock('../auth/AuthContext', () => ({ useAuth: () => ({ esci: h.esci }) }))
 
 const apri = (percorso: string) =>

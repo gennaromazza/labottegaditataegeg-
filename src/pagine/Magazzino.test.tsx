@@ -292,7 +292,7 @@ describe('movimenti', () => {
     const s = within(scheda('Cera di soia'))
     expect(s.getByText('Carico +2 kg → ora 2,5 kg')).toBeInTheDocument()
     expect(s.getByText(/20\/11\/2026 · Acquisto fornitore/)).toBeInTheDocument()
-    expect(s.getByText('Scarico -0,5 kg → ora 2 kg')).toBeInTheDocument()
+    expect(s.getByText('Scarico -500 g → ora 2 kg')).toBeInTheDocument()
   })
 })
 
@@ -418,5 +418,26 @@ describe('con molti articoli', () => {
     expect(screen.getAllByRole('article')).toHaveLength(30)
     await userEvent.type(screen.getByLabelText('Cerca nel magazzino'), 'articolo')
     expect(screen.getAllByRole('article')).toHaveLength(15)
+  })
+})
+
+describe('ricetta nella scheda del prodotto', () => {
+  it('un Prodotto ha la sezione Ricetta, un Materiale no', async () => {
+    apri()
+    await gestisci('Candela grande')
+    expect(within(scheda('Candela grande')).getByLabelText('Ricetta di Candela grande')).toBeInTheDocument()
+    await gestisci('Cera di soia')
+    expect(within(scheda('Cera di soia')).queryByLabelText(/Ricetta di/)).not.toBeInTheDocument()
+  })
+
+  it('i materiali della lista si possono mettere in ricetta e il salvataggio parte dalla scheda', async () => {
+    apri()
+    await gestisci('Candela grande')
+    const s = within(scheda('Candela grande'))
+    await userEvent.selectOptions(s.getByLabelText('Aggiungi un materiale'), 'a1') // Cera di soia, in kg
+    await userEvent.type(s.getByLabelText('Quantità per pezzo'), '200')
+    await userEvent.click(s.getByRole('button', { name: '+ Aggiungi alla ricetta' }))
+    await userEvent.click(s.getByRole('button', { name: 'Salva ricetta' }))
+    expect(h.aggiorna).toHaveBeenCalledWith('a3', { ricetta: [{ articoloId: 'a1', quantita: 200 }] })
   })
 })

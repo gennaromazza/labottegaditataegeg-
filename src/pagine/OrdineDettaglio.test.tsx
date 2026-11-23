@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
+import { ArticoliProvider } from '../componenti/ArticoliContext'
 import OrdineDettaglio from './OrdineDettaglio'
 import { ordineDiProva } from '../lib/fixture'
 import { ErroreRegola } from '../lib/stati'
@@ -13,9 +14,17 @@ const h = vi.hoisted(() => ({
   rimuovi: vi.fn(),
   elimina: vi.fn(),
   aggiorna: vi.fn(),
+  cambia: vi.fn(),
   tutti: [] as Ordine[],
+  articoli: [] as unknown[],
 }))
 
+vi.mock('../data/magazzino', () => ({
+  ascoltaArticoli: (cb: (a: unknown[]) => void) => {
+    cb(h.articoli)
+    return () => {}
+  },
+}))
 vi.mock('../data/clienti', () => ({
   ascoltaCliente: (_id: string, cb: (c: unknown) => void) => {
     cb(h.cliente)
@@ -34,6 +43,7 @@ vi.mock('../data/ordini', () => ({
     return () => {}
   },
   aggiornaOrdine: (...a: unknown[]) => h.aggiorna(...a),
+  cambiaStatoOrdine: (...a: unknown[]) => h.cambia(...a),
   rimuoviPagamento: (...a: unknown[]) => h.rimuovi(...a),
   eliminaOrdine: (...a: unknown[]) => h.elimina(...a),
   aggiungiPagamento: async (_id: string, p: Pagamento) => {
@@ -143,6 +153,8 @@ describe('stati: senza acconto non si procede', () => {
   beforeEach(() => {
     h.aggiorna.mockReset()
     h.aggiorna.mockResolvedValue(undefined)
+    h.cambia.mockReset()
+    h.cambia.mockResolvedValue(undefined)
   })
 
   it('un ordine senza pagamenti non può andare in preparazione', async () => {
@@ -150,28 +162,28 @@ describe('stati: senza acconto non si procede', () => {
     apri()
     await userEvent.selectOptions(screen.getByLabelText("Stato dell'ordine"), 'in preparazione')
     expect(await screen.findByText(/Senza un acconto non si procede/, { selector: '[role="alert"]' })).toBeInTheDocument()
-    expect(h.aggiorna).not.toHaveBeenCalled()
+    expect(h.cambia).not.toHaveBeenCalled()
   })
 
   it('con un acconto si può passare a in preparazione', async () => {
     h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
     apri()
     await userEvent.selectOptions(screen.getByLabelText("Stato dell'ordine"), 'in preparazione')
-    expect(h.aggiorna).toHaveBeenCalledWith('o1', { stato: 'in preparazione' })
+    expect(h.cambia).toHaveBeenCalledWith('o1', 'in preparazione', { procediComunque: false, extra: undefined })
   })
 
   it('impostando "spedito" si registra anche la data di spedizione', async () => {
     h.ordine = ordineDiProva({ stato: 'pronto', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
     apri()
     await userEvent.selectOptions(screen.getByLabelText("Stato dell'ordine"), 'spedito')
-    expect(h.aggiorna).toHaveBeenCalledWith('o1', { stato: 'spedito', dataSpedizione: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) })
+    expect(h.cambia).toHaveBeenCalledWith('o1', 'spedito', { procediComunque: false, extra: { dataSpedizione: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/) } })
   })
 
   it('annullare si può anche senza acconto', async () => {
     h.ordine = ordineDiProva()
     apri()
     await userEvent.selectOptions(screen.getByLabelText("Stato dell'ordine"), 'annullato')
-    expect(h.aggiorna).toHaveBeenCalledWith('o1', { stato: 'annullato' })
+    expect(h.cambia).toHaveBeenCalledWith('o1', 'annullato', { procediComunque: false, extra: undefined })
   })
 
   it('un ordine in attesa mostra l\'avviso, senza pulsanti per avanzare', () => {
@@ -363,5 +375,56 @@ describe('collegamenti e organizzazione della pagina', () => {
     const menu = screen.getByLabelText("Stato dell'ordine")
     expect(menu).toHaveValue('in attesa acconto')
     expect(within(menu).getAllByRole('option').map((o) => o.textContent)).toContain('In attesa di acconto')
+  })
+})
+
+describe('materiali della ricetta nel dettaglio ordine', () => {
+  const pagato = [{ importoCent: 500, data: '2026-11-05' }]
+  const articoli = [
+    { id: 'fil', nome: 'Filamento PLA', tipo: 'materiale', unita: 'kg', giacenza: 300, attivo: true },
+    { id: 'seg', nome: 'Segnaposto 3D', tipo: 'prodotto', unita: 'pezzi', giacenza: 0, prezzoCent: 250, attivo: true, ricetta: [{ articoloId: 'fil', quantita: 18 }] },
+  ]
+  const conMateriali = (quantita: number, extra: Partial<Ordine> = {}) => {
+    h.articoli = articoli
+    h.ordine = ordineDiProva({
+      stato: 'confermato',
+      pagamenti: pagato,
+      righe: [{ articoloId: 'seg', descrizione: 'Segnaposto 3D', quantita, prezzoUnitarioCent: 250 }],
+      ...extra,
+    })
+    h.cambia.mockReset()
+    h.cambia.mockResolvedValue(undefined)
+    return render(
+      <MemoryRouter initialEntries={['/ordini/o1']}>
+        <ArticoliProvider>
+          <Routes>
+            <Route path="/ordini/:id" element={<OrdineDettaglio />} />
+          </Routes>
+        </ArticoliProvider>
+      </MemoryRouter>,
+    )
+  }
+
+  it('mostra cosa serve e se in magazzino ce n\'è abbastanza', () => {
+    conMateriali(10)
+    expect(screen.getByText("In magazzino ce n'è abbastanza.")).toBeInTheDocument()
+  })
+
+  it('dal menu dello stato, "In preparazione" con materiali che non bastano mostra l\'avviso', async () => {
+    conMateriali(30)
+    await userEvent.selectOptions(screen.getByLabelText("Stato dell'ordine"), 'in preparazione')
+    expect(screen.getByRole('alertdialog')).toHaveTextContent('Filamento PLA: servono 540 g, ne hai 300 g')
+    expect(h.cambia).not.toHaveBeenCalled()
+    await userEvent.click(screen.getByRole('button', { name: 'Procedi comunque' }))
+    expect(h.cambia).toHaveBeenCalledWith('o1', 'in preparazione', { procediComunque: true, extra: undefined })
+  })
+
+  it('con i materiali già scalati li elenca', () => {
+    conMateriali(10, {
+      stato: 'in preparazione',
+      scaricoMagazzino: { data: '2026-11-20', voci: [{ articoloId: 'fil', nome: 'Filamento PLA', unita: 'kg', necessaria: 180, scalata: 180 }] },
+    })
+    expect(screen.getByText(/Materiali scalati dal magazzino/)).toBeInTheDocument()
+    expect(screen.getByText(/Filamento PLA: 180 g/)).toBeInTheDocument()
   })
 })

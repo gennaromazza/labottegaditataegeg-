@@ -135,7 +135,7 @@ export default function Magazzino() {
       <div style={{ marginTop: '.75rem' }}>
         {articoli.length === 0 && <p>Il magazzino è vuoto. Aggiungi il primo articolo con «+ Nuovo articolo».</p>}
         {articoli.length > 0 && visibili.length === 0 && <p>Nessun articolo corrisponde.</p>}
-        {pagina.map((a) => <SchedaArticolo key={a.id} articolo={a} />)}
+        {pagina.map((a) => <SchedaArticolo key={a.id} articolo={a} tutti={articoli} />)}
         <MostraAltri resto={resto} onClick={mostraAltri} />
       </div>
     </main>

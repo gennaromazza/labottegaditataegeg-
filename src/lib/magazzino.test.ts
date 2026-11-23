@@ -23,6 +23,28 @@ describe('daArticolo: i vecchi voci del listino restano valide', () => {
     expect(a).toMatchObject({ unita: 'pezzi', giacenza: 0, attivo: true })
     expect(daArticolo('w', { nome: 'Y', giacenza: 1.5 }).giacenza).toBe(0)
   })
+  it('la ricetta salvata si legge; ingredienti non validi vengono scartati', () => {
+    const a = daArticolo('p', {
+      nome: 'Segnaposto',
+      ricetta: [
+        { articoloId: 'fil', quantita: 18 },
+        { articoloId: 'x', quantita: 0 },
+        { articoloId: 'y', quantita: 1.5 },
+        { articoloId: 5, quantita: 3 },
+        null,
+        { articoloId: 'ane', quantita: 1 },
+      ],
+    })
+    expect(a.ricetta).toEqual([
+      { articoloId: 'fil', quantita: 18 },
+      { articoloId: 'ane', quantita: 1 },
+    ])
+  })
+  it('una ricetta vuota o non valida è come nessuna ricetta', () => {
+    expect(daArticolo('p', { nome: 'A', ricetta: [] }).ricetta).toBeUndefined()
+    expect(daArticolo('p', { nome: 'A', ricetta: 'boh' }).ricetta).toBeUndefined()
+    expect('ricetta' in daArticolo('p', { nome: 'A' })).toBe(false)
+  })
   it('attivo false resta false', () => expect(daArticolo('v', { nome: 'Z', attivo: false }).attivo).toBe(false))
 })
 
@@ -94,8 +116,8 @@ const mov = (extra: Partial<Movimento>): Movimento => ({
 
 describe('testoMovimento', () => {
   it('carico', () => expect(testoMovimento(mov({}))).toBe('Carico +2 kg → ora 2,5 kg'))
-  it('scarico', () => expect(testoMovimento(mov({ tipo: 'scarico', delta: -250, giacenzaDopo: 2250 }))).toBe('Scarico -0,25 kg → ora 2,25 kg'))
-  it('correzione', () => expect(testoMovimento(mov({ tipo: 'rettifica', delta: -500, giacenzaDopo: 2000 }))).toBe('Correzione -0,5 kg → ora 2 kg'))
+  it('scarico', () => expect(testoMovimento(mov({ tipo: 'scarico', delta: -250, giacenzaDopo: 2250 }))).toBe('Scarico -250 g → ora 2,25 kg'))
+  it('correzione', () => expect(testoMovimento(mov({ tipo: 'rettifica', delta: -500, giacenzaDopo: 2000 }))).toBe('Correzione -500 g → ora 2 kg'))
   it('pezzi al singolare', () => expect(testoMovimento(mov({ unita: 'pezzi', delta: 1, giacenzaDopo: 1 }))).toBe('Carico +1 pezzo → ora 1 pezzo'))
 })
 

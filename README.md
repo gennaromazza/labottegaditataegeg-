@@ -34,6 +34,18 @@ Solo gli account email/password creati da noi, e solo le email elencate in `fire
 
 `npm run test:rules` usa l'emulatore Firestore, che richiede **Java** installato.
 
+## Ricette e scarico automatico del magazzino
+
+Design: `docs/superpowers/specs/2026-11-23-ricette-design.md`.
+
+- Ogni **Prodotto** ha una **ricetta** (scheda del prodotto nel Magazzino, sezione *Ricetta*): i Materiali che servono per **un pezzo**, con la quantità nell'unità preferita (g su una scorta in kg va bene). Si salva in unità base, come la giacenza.
+- Le righe d'ordine **scelte dalla lista prodotti** ricordano il prodotto (`articoloId`); quelle scritte a mano e gli ordini già esistenti **non scalano** nulla.
+- Quando l'ordine passa a **In preparazione** i materiali si scalano **una sola volta** (`cambiaStatoOrdine` in `src/data/ordini.ts`, in una transazione). Se non bastano compare l'avviso con le quantità ("Filamento PLA: servono 540 g, ne hai 300 g") e si sceglie **Procedi comunque** (scala quanto c'è, lo storico annota cosa mancava) oppure **Ferma, riordino**.
+- Se l'ordine viene annullato, torna a Confermato/In attesa o gli si toglie l'unico acconto **prima della spedizione**, i materiali tornano in magazzino; se è già spedito o consegnato no. Eliminare un ordine non ancora spedito restituisce i materiali.
+- Nell'ordine si vede cosa serve prima della preparazione e cosa è stato scalato dopo.
+- **Test sulle transazioni**: senza Java non c'è l'emulatore Firestore, quindi `src/test-utils/fakeFirestore.ts` è un finto Firestore in memoria che impone le regole che contano (letture prima delle scritture, niente `undefined`, tutto o niente). `src/data/ordini.test.ts` fa girare su di esso il codice vero. Le regole di sicurezza restano da provare con l'emulatore (`npm run test:rules`).
+- Non ci sono ancora: costo e margine per ricetta, quantità per lettera, scarti di stampa, scorta minima.
+
 ## Organizzazione delle schermate
 
 Con molti ordini nessuna pagina è tutta aperta:

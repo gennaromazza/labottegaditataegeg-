@@ -1,9 +1,19 @@
 import { normalizza } from './testo'
-import { ETICHETTE_MOVIMENTO, type Articolo, type Movimento, type TipoArticolo, type TipoMovimento } from './tipi'
-import { formatQuantita, UNITA, type Unita } from './unita'
+import { ETICHETTE_MOVIMENTO, type Articolo, type IngredienteRicetta, type Movimento, type TipoArticolo, type TipoMovimento } from './tipi'
+import { formatQuantita, formatQuantitaComoda, UNITA, type Unita } from './unita'
+
+/** La ricetta salvata: si tengono solo gli ingredienti validi (id e quantità intera positiva). */
+function leggiRicetta(v: unknown): IngredienteRicetta[] | undefined {
+  if (!Array.isArray(v)) return undefined
+  const ok = v
+    .filter((x): x is { articoloId: string; quantita: number } => !!x && typeof x.articoloId === 'string' && Number.isInteger(x.quantita) && x.quantita > 0)
+    .map((x) => ({ articoloId: x.articoloId, quantita: x.quantita }))
+  return ok.length > 0 ? ok : undefined
+}
 
 /** Gli articoli creati quando c'era solo il listino non hanno tipo, unità e giacenza: si leggono come Prodotti in pezzi, giacenza 0. */
 export function daArticolo(id: string, d: Record<string, unknown>): Articolo {
+  const ricetta = leggiRicetta(d.ricetta)
   return {
     id,
     nome: String(d.nome ?? ''),
@@ -13,6 +23,7 @@ export function daArticolo(id: string, d: Record<string, unknown>): Articolo {
     ...(typeof d.prezzoCent === 'number' ? { prezzoCent: d.prezzoCent } : {}),
     attivo: d.attivo !== false,
     ...(typeof d.note === 'string' && d.note ? { note: d.note } : {}),
+    ...(ricetta ? { ricetta } : {}),
   }
 }
 
@@ -38,8 +49,8 @@ export function calcolaMovimento(giacenza: number, tipo: TipoMovimento, quantita
 
 /** Riga dello storico: "Carico +2 kg → ora 2,5 kg". */
 export function testoMovimento(m: Movimento): string {
-  const variazione = m.delta < 0 ? formatQuantita(m.delta, m.unita) : `+${formatQuantita(m.delta, m.unita)}`
-  return `${ETICHETTE_MOVIMENTO[m.tipo]} ${variazione} → ora ${formatQuantita(m.giacenzaDopo, m.unita)}`
+  const variazione = m.delta < 0 ? formatQuantitaComoda(m.delta, m.unita) : `+${formatQuantitaComoda(m.delta, m.unita)}`
+  return `${ETICHETTE_MOVIMENTO[m.tipo]} ${variazione} → ora ${formatQuantitaComoda(m.giacenzaDopo, m.unita)}`
 }
 
 /** Cerca per nome (senza badare a maiuscole e accenti) e, se serve, per tipo. */

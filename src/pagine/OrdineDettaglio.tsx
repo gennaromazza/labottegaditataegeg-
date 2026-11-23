@@ -2,7 +2,7 @@ import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { BadgePagamento } from '../componenti/BadgePagamento'
 import { ascoltaCliente } from '../data/clienti'
-import { aggiornaOrdine, aggiungiPagamento, ascoltaOrdine, ascoltaOrdini, eliminaOrdine, rimuoviPagamento } from '../data/ordini'
+import { aggiungiPagamento, ascoltaOrdine, ascoltaOrdini, eliminaOrdine, rimuoviPagamento } from '../data/ordini'
 import { oggiISO } from '../data/util'
 import { formatData, formatEuro, residuoCent, totaleCent, versatoCent } from '../lib/calcoli'
 import { parseEuro } from '../lib/importi'
@@ -11,9 +11,10 @@ import { generaPdfOrdine } from '../lib/pdf'
 import { linkWhatsApp, testoIndirizzo } from '../lib/whatsapp'
 import { AvanzamentoOrdine } from '../componenti/AvanzamentoOrdine'
 import { Briciole } from '../componenti/Briciole'
+import { AvvisoMateriali, useCambioStato } from '../componenti/CambioStato'
 import { Sezione } from '../componenti/Sezione'
 import { BadgeStato } from '../componenti/BadgeStato'
-import { ErroreRegola, puoCambiareStato, statiSceglibili } from '../lib/stati'
+import { ErroreRegola, statiSceglibili } from '../lib/stati'
 import { ETICHETTE_METODO, ETICHETTE_STATO, METODI, type Cliente, type MetodoPagamento, type Ordine, type Pagamento, type StatoOrdine } from '../lib/tipi'
 
 const ERRORE_SCRITTURA = 'Non sono riuscito a salvare. Controlla la connessione e riprova.'
@@ -91,6 +92,8 @@ export default function OrdineDettaglio() {
   const clienteId = ordine?.clienteId
   useEffect(() => (clienteId ? ascoltaCliente(clienteId, setCliente) : undefined), [clienteId])
 
+  const cambioStato = useCambioStato(ordine)
+
   if (ordine === undefined) return <main className="pagina">Caricamento…</main>
   if (ordine === null) return <main className="pagina"><p>Ordine non trovato.</p><Link to="/ordini">Torna agli ordini</Link></main>
 
@@ -144,20 +147,6 @@ export default function OrdineDettaglio() {
       await eliminaOrdine(ordine!.id)
       navigate('/ordini')
     })
-  }
-
-  function cambiaStato(nuovo: StatoOrdine) {
-    const esito = puoCambiareStato(ordine!, nuovo)
-    if (!esito.ok) {
-      setErroreAzione(esito.motivo)
-      return
-    }
-    void esegui(() =>
-      aggiornaOrdine(ordine!.id, {
-        stato: nuovo,
-        ...(nuovo === 'spedito' && !ordine!.dataSpedizione ? { dataSpedizione: oggiISO() } : {}),
-      }),
-    )
   }
 
   function togliPagamento(p: Pagamento) {
@@ -225,9 +214,16 @@ export default function OrdineDettaglio() {
         <Link to={nelleSpedizioni}>Nelle Spedizioni</Link>
       </div>
       <label htmlFor="stato" className="no-stampa">Stato dell&apos;ordine</label>
-      <select id="stato" className="no-stampa" value={ordine.stato} onChange={(e) => cambiaStato(e.target.value as StatoOrdine)}>
+      <select id="stato" className="no-stampa" value={ordine.stato} onChange={(e) => {
+        const nuovo = e.target.value as StatoOrdine
+        void cambioStato.cambia(nuovo, nuovo === 'spedito' && !ordine.dataSpedizione ? { dataSpedizione: oggiISO() } : undefined)
+      }}>
         {statiSceglibili(ordine).map((s) => <option key={s} value={s}>{ETICHETTE_STATO[s]}</option>)}
       </select>
+      {cambioStato.errore && <p className="errore no-stampa" role="alert">{cambioStato.errore}</p>}
+      <div className="no-stampa">
+        <AvvisoMateriali avviso={cambioStato.avviso} onProcedi={() => void cambioStato.procediComunque()} onFerma={cambioStato.ferma} occupato={cambioStato.occupato} />
+      </div>
       <section className="scheda no-stampa" style={{ marginTop: '1rem' }} aria-label="Avanzamento">
         <AvanzamentoOrdine key={ordine.id} ordine={vivo} indirizzo={cliente?.spedizione} />
       </section>

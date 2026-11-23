@@ -204,3 +204,48 @@ it('il percorso in alto riporta all\'elenco ordini', () => {
   expect(screen.getByRole('link', { name: 'Ordini' })).toHaveAttribute('href', '/ordini')
   expect(percorso.querySelector('[aria-current="page"]')).toHaveTextContent('Nuovo ordine')
 })
+
+describe('righe collegate al prodotto del magazzino (servono per scalare i materiali)', () => {
+  it('una riga scelta dalla lista ricorda il prodotto', async () => {
+    apri()
+    await scegliCliente()
+    await userEvent.click(screen.getByRole('button', { name: /Candela grande · 8,00/ }))
+    await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+    expect(h.crea.mock.calls[0][0].righe).toEqual([
+      { articoloId: 'l1', descrizione: 'Candela grande', quantita: 1, prezzoUnitarioCent: 800 },
+    ])
+  })
+
+  it('una riga scritta a mano non ha il collegamento (e quindi non scala nulla)', async () => {
+    apri()
+    await scegliCliente()
+    await userEvent.type(screen.getByLabelText('Prodotto 1'), 'Candela grande')
+    await userEvent.type(screen.getByLabelText(/Prezzo unitario 1/), '8')
+    await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+    expect('articoloId' in h.crea.mock.calls[0][0].righe[0]).toBe(false)
+  })
+
+  it('una riga scritta a mano con lo stesso nome non si fonde con quella scelta dalla lista', async () => {
+    apri()
+    await scegliCliente()
+    await userEvent.type(screen.getByLabelText('Prodotto 1'), 'Candela grande')
+    await userEvent.type(screen.getByLabelText(/Prezzo unitario 1/), '8')
+    await userEvent.click(screen.getByRole('button', { name: /Candela grande · 8,00/ }))
+    expect(screen.getByLabelText('Prodotto 2')).toHaveValue('Candela grande')
+    expect(screen.getByLabelText('Quantità 1')).toHaveValue('1')
+    await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+    const righe = h.crea.mock.calls[0][0].righe
+    expect(righe).toHaveLength(2)
+    expect(righe[1].articoloId).toBe('l1')
+  })
+
+  it('toccare due volte lo stesso prodotto aumenta la quantità e resta collegato', async () => {
+    apri()
+    await scegliCliente()
+    const candela = screen.getByRole('button', { name: /Candela grande · 8,00/ })
+    await userEvent.click(candela)
+    await userEvent.click(candela)
+    await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+    expect(h.crea.mock.calls[0][0].righe).toEqual([{ articoloId: 'l1', descrizione: 'Candela grande', quantita: 2, prezzoUnitarioCent: 800 }])
+  })
+})

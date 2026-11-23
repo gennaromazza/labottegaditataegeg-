@@ -1,4 +1,4 @@
-import { addDoc, collection, doc, onSnapshot, orderBy, query, runTransaction, updateDoc, where } from 'firebase/firestore'
+import { addDoc, collection, doc, onSnapshot, orderBy, query, runTransaction, updateDoc, where, type Transaction } from 'firebase/firestore'
 import { db } from '../firebase'
 import { calcolaMovimento, daArticolo } from '../lib/magazzino'
 import { ErroreRegola } from '../lib/stati'
@@ -12,6 +12,35 @@ const MOVIMENTI = 'movimenti'
 export function ascoltaArticoli(cb: (articoli: Articolo[]) => void): () => void {
   return onSnapshot(query(collection(db, ARTICOLI), orderBy('nome')), (s) =>
     cb(s.docs.map((d) => daArticolo(d.id, d.data()))),
+  )
+}
+
+/** Legge degli articoli dentro una transazione (tutte le letture vanno fatte prima delle scritture). */
+export async function leggiArticoli(tx: Transaction, ids: string[]): Promise<Map<string, Articolo>> {
+  const mappa = new Map<string, Articolo>()
+  for (const id of new Set(ids)) {
+    const snap = await tx.get(doc(db, ARTICOLI, id))
+    if (snap.exists()) mappa.set(id, daArticolo(snap.id, snap.data()))
+  }
+  return mappa
+}
+
+/** Aggiorna la giacenza di un articolo e scrive il movimento, dentro una transazione. */
+export function scriviMovimento(tx: Transaction, articolo: Articolo, tipo: TipoMovimento, delta: number, giacenzaDopo: number, nota?: string): void {
+  tx.update(doc(db, ARTICOLI, articolo.id), { giacenza: giacenzaDopo })
+  tx.set(
+    doc(collection(db, MOVIMENTI)),
+    senzaUndefined({
+      articoloId: articolo.id,
+      articoloNome: articolo.nome,
+      tipo,
+      delta,
+      giacenzaDopo,
+      unita: articolo.unita,
+      ...(nota?.trim() ? { nota: nota.trim() } : {}),
+      data: oggiISO(),
+      creatoIl: new Date().toISOString(),
+    }),
   )
 }
 
@@ -39,21 +68,7 @@ export async function registraMovimento(articoloId: string, tipo: TipoMovimento,
     const articolo = daArticolo(snap.id, snap.data())
     const esito = calcolaMovimento(articolo.giacenza, tipo, quantitaBase, articolo.unita)
     if (!esito.ok) throw new ErroreRegola(esito.motivo)
-    tx.update(ref, { giacenza: esito.nuova })
-    tx.set(
-      doc(collection(db, MOVIMENTI)),
-      senzaUndefined({
-        articoloId,
-        articoloNome: articolo.nome,
-        tipo,
-        delta: esito.delta,
-        giacenzaDopo: esito.nuova,
-        unita: articolo.unita,
-        ...(nota?.trim() ? { nota: nota.trim() } : {}),
-        data: oggiISO(),
-        creatoIl: new Date().toISOString(),
-      }),
-    )
+    scriviMovimento(tx, articolo, tipo, esito.delta, esito.nuova, nota)
   })
 }
 

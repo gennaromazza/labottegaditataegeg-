@@ -1,4 +1,4 @@
-import { compatibili, DIMENSIONE, formatQuantita, inBase, parseQuantita, UNITA, unitaCambiabile } from './unita'
+import { compatibili, DIMENSIONE, formatQuantita, inBase, parseQuantita, UNITA, unitaCambiabile, unitaCompatibili, unitaPerRicetta } from './unita'
 
 describe('parseQuantita (testo → numero intero in unità base)', () => {
   it.each([
@@ -71,5 +71,25 @@ describe('famiglie di unità', () => {
     expect(unitaCambiabile('g', 'kg', 5000)).toBe(true)
     expect(unitaCambiabile('pezzi', 'g', 12)).toBe(false)
     expect(unitaCambiabile('pezzi', 'g', 0)).toBe(true)
+  })
+})
+
+describe('unità per le ricette', () => {
+  it('per un materiale in chili si può scrivere in grammi o chili', () => expect(unitaCompatibili('kg')).toEqual(['g', 'kg']))
+  it('per i pezzi solo pezzi', () => expect(unitaCompatibili('pezzi')).toEqual(['pezzi']))
+  it('litri e metri', () => {
+    expect(unitaCompatibili('l')).toEqual(['ml', 'l'])
+    expect(unitaCompatibili('m')).toEqual(['cm', 'm'])
+  })
+  it("di solito si scrive nell'unità piccola", () => {
+    expect(unitaPerRicetta('kg')).toBe('g')
+    expect(unitaPerRicetta('l')).toBe('ml')
+    expect(unitaPerRicetta('m')).toBe('cm')
+    expect(unitaPerRicetta('pezzi')).toBe('pezzi')
+    expect(unitaPerRicetta('g')).toBe('g')
+  })
+  it('20 g su una scorta in chili è 20 in unità base', () => {
+    expect(parseQuantita('20', unitaPerRicetta('kg'))).toBe(20)
+    expect(parseQuantita('0,5', 'kg')).toBe(500)
   })
 })

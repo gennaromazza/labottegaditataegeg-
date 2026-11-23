@@ -10,6 +10,7 @@ const h = vi.hoisted(() => ({
 
 vi.mock('../firebase', () => ({ auth: {}, db: {} }))
 vi.mock('../data/ordini', () => ({ ascoltaOrdini: () => () => {} }))
+vi.mock('../data/magazzino', () => ({ ascoltaArticoli: () => () => {} }))
 vi.mock('firebase/auth', () => ({
   onAuthStateChanged: (_a: unknown, cb: (u: unknown) => void) => {
     h.listener = cb

@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { formatEuro } from '../lib/calcoli'
 import { ETICHETTE_TIPO, type Articolo } from '../lib/tipi'
-import { formatQuantita } from '../lib/unita'
+import { formatQuantitaComoda } from '../lib/unita'
 import { ModificaArticolo } from './ModificaArticolo'
+import { RicettaArticolo } from './RicettaArticolo'
 import { MovimentoArticolo } from './MovimentoArticolo'
 
-export function SchedaArticolo({ articolo }: { articolo: Articolo }) {
+export function SchedaArticolo({ articolo, tutti = [] }: { articolo: Articolo; tutti?: Articolo[] }) {
   const [aperto, setAperto] = useState(false)
   const pannello = `pannello-${articolo.id}`
   return (
@@ -17,7 +18,7 @@ export function SchedaArticolo({ articolo }: { articolo: Articolo }) {
           {!articolo.attivo && <> <span className="badge spento">Disattivato</span></>}
         </span>
       </div>
-      <p className="giacenza" aria-label={`Giacenza di ${articolo.nome}`}>{formatQuantita(articolo.giacenza, articolo.unita)}</p>
+      <p className="giacenza" aria-label={`Giacenza di ${articolo.nome}`}>{formatQuantitaComoda(articolo.giacenza, articolo.unita)}</p>
       {articolo.tipo === 'prodotto' && articolo.prezzoCent !== undefined && (
         <p className="nota">{formatEuro(articolo.prezzoCent)} al {articolo.unita === 'pezzi' ? 'pezzo' : articolo.unita}</p>
       )}
@@ -35,6 +36,7 @@ export function SchedaArticolo({ articolo }: { articolo: Articolo }) {
       {aperto && (
         <div id={pannello}>
           <MovimentoArticolo articolo={articolo} />
+          {articolo.tipo === 'prodotto' && <RicettaArticolo key={`r-${articolo.id}`} prodotto={articolo} tutti={tutti} />}
           <ModificaArticolo articolo={articolo} />
         </div>
       )}

@@ -1,7 +1,10 @@
-import { collection, deleteDoc, doc, onSnapshot, orderBy, query, runTransaction, updateDoc } from 'firebase/firestore'
+import { collection, deleteField, doc, onSnapshot, orderBy, query, runTransaction, updateDoc, type Transaction } from 'firebase/firestore'
 import { db } from '../firebase'
+import { ErroreMateriali, deveRipristinare, fabbisogno, pianoScarico, vociDaRipristinare, verificaDisponibilita } from '../lib/ricette'
+import { formatQuantitaComoda } from '../lib/unita'
 import { ErroreRegola, normalizzaStato, rimozionePermessa, statoDopoNuovoPagamento, statoDopoRimozionePagamento } from '../lib/stati'
-import type { Ordine, Pagamento } from '../lib/tipi'
+import type { Articolo, Ordine, Pagamento, ScaricoMagazzino, StatoOrdine } from '../lib/tipi'
+import { leggiArticoli, scriviMovimento } from './magazzino'
 import { oggiISO, senzaUndefined } from './util'
 
 type NuovoOrdine = Omit<Ordine, 'id' | 'numero' | 'creatoIl'>
@@ -14,6 +17,17 @@ const daDoc = (id: string, d: object): Ordine => {
 }
 
 const somma = (p: Pagamento[]) => p.reduce((s, x) => s + x.importoCent, 0)
+
+/** Restituisce al magazzino i materiali che erano stati scalati per l'ordine (da chiamare quando tutte le letture sono finite). */
+function restituisciMateriali(tx: Transaction, numero: number, scarico: ScaricoMagazzino | undefined, materiali: Map<string, Articolo>, motivo: string) {
+  for (const v of vociDaRipristinare(scarico)) {
+    const m = materiali.get(v.articoloId)
+    if (!m) continue // il materiale non esiste più: niente da rimettere
+    scriviMovimento(tx, m, 'carico', v.scalata, m.giacenza + v.scalata, `Ordine n. ${numero}: materiali restituiti (${motivo})`)
+  }
+}
+
+const idMateriali = (scarico: ScaricoMagazzino | undefined) => vociDaRipristinare(scarico).map((v) => v.articoloId)
 
 /** Il numero ordine è progressivo e assegnato in transazione: mai duplicato. */
 export async function creaOrdine(dati: NuovoOrdine): Promise<Ordine> {
@@ -31,6 +45,58 @@ export async function creaOrdine(dati: NuovoOrdine): Promise<Ordine> {
 
 export async function aggiornaOrdine(id: string, patch: Partial<Omit<Ordine, 'id' | 'numero'>>): Promise<void> {
   await updateDoc(doc(db, 'ordini', id), senzaUndefined(patch))
+}
+
+const MOTIVO: Partial<Record<StatoOrdine, string>> = {
+  annullato: 'ordine annullato',
+  'in attesa acconto': 'ordine tornato in attesa',
+  confermato: 'ordine tornato indietro',
+}
+
+/**
+ * Cambia lo stato di un ordine. Quando passa a "In preparazione" scala dal magazzino i materiali delle ricette
+ * (una volta sola); se poi viene annullato o torna indietro prima della spedizione li restituisce.
+ * Se mancano materiali lancia ErroreMateriali, a meno che `procediComunque`: allora scala quanto c'è.
+ */
+export async function cambiaStatoOrdine(
+  id: string,
+  nuovo: StatoOrdine,
+  opzioni: { procediComunque?: boolean; extra?: Partial<Omit<Ordine, 'id' | 'numero'>> } = {},
+): Promise<void> {
+  const ref = doc(db, 'ordini', id)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new ErroreRegola('Ordine non trovato: forse è stato eliminato.')
+    const ordine = daDoc(snap.id, snap.data())
+    const extra = senzaUndefined(opzioni.extra ?? {})
+
+    if (nuovo === 'in preparazione' && !ordine.scaricoMagazzino) {
+      const prodotti = await leggiArticoli(tx, ordine.righe.flatMap((r) => (r.articoloId ? [r.articoloId] : [])))
+      const ingredienti = await leggiArticoli(tx, [...prodotti.values()].flatMap((p) => p.ricetta?.map((i) => i.articoloId) ?? []))
+      const tutti = [...prodotti.values(), ...ingredienti.values()]
+      const f = fabbisogno(ordine.righe, tutti)
+      const verifica = verificaDisponibilita(f.voci, tutti)
+      if (!verifica.ok && !opzioni.procediComunque) throw new ErroreMateriali(verifica.mancanti)
+      const piano = pianoScarico(f.voci, tutti)
+      for (const voce of piano) {
+        const m = ingredienti.get(voce.articoloId)
+        if (!m || voce.scalata <= 0) continue
+        const manca = voce.necessaria - voce.scalata
+        scriviMovimento(tx, m, 'scarico', -voce.scalata, m.giacenza - voce.scalata, `Ordine n. ${ordine.numero}${manca > 0 ? ` (ne mancavano ${formatQuantitaComoda(manca, m.unita)})` : ''}`)
+      }
+      tx.update(ref, { stato: nuovo, ...extra, ...(piano.length > 0 ? { scaricoMagazzino: { data: oggiISO(), voci: piano } } : {}) })
+      return
+    }
+
+    if (deveRipristinare(nuovo, ordine.scaricoMagazzino, ordine.stato)) {
+      const materiali = await leggiArticoli(tx, idMateriali(ordine.scaricoMagazzino))
+      restituisciMateriali(tx, ordine.numero, ordine.scaricoMagazzino, materiali, MOTIVO[nuovo] ?? 'ordine tornato indietro')
+      tx.update(ref, { stato: nuovo, ...extra, scaricoMagazzino: deleteField() })
+      return
+    }
+
+    tx.update(ref, { stato: nuovo, ...extra })
+  })
 }
 
 /** Read-modify-write in transazione, così due acconti uguali non si fondono e nessuno si perde. */
@@ -60,12 +126,33 @@ export async function rimuoviPagamento(id: string, pagamento: Pagamento): Promis
     const permesso = rimozionePermessa(String(snap.data()?.stato ?? ''), somma(rimasti))
     if (!permesso.ok) throw new ErroreRegola(permesso.motivo)
     const stato = statoDopoRimozionePagamento(String(snap.data()?.stato ?? ''), somma(rimasti))
+    const scarico = snap.data()?.scaricoMagazzino as ScaricoMagazzino | undefined
+    if (stato && deveRipristinare(stato, scarico)) {
+      // senza acconto l'ordine torna in attesa: anche i materiali tornano in magazzino
+      const materiali = await leggiArticoli(tx, idMateriali(scarico))
+      restituisciMateriali(tx, Number(snap.data()?.numero ?? 0), scarico, materiali, 'pagamento tolto')
+      tx.update(ref, { pagamenti: rimasti, stato, scaricoMagazzino: deleteField() })
+      return
+    }
     tx.update(ref, { pagamenti: rimasti, ...(stato ? { stato } : {}) })
   })
 }
 
+const PRIMA_DELLA_SPEDIZIONE: StatoOrdine[] = ['in attesa acconto', 'confermato', 'in preparazione', 'pronto']
+
+/** Elimina l'ordine; se aveva scalato materiali e non è ancora partito li restituisce al magazzino. */
 export async function eliminaOrdine(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'ordini', id))
+  const ref = doc(db, 'ordini', id)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) return
+    const ordine = daDoc(snap.id, snap.data())
+    if (ordine.scaricoMagazzino && PRIMA_DELLA_SPEDIZIONE.includes(ordine.stato)) {
+      const materiali = await leggiArticoli(tx, idMateriali(ordine.scaricoMagazzino))
+      restituisciMateriali(tx, ordine.numero, ordine.scaricoMagazzino, materiali, 'ordine eliminato')
+    }
+    tx.delete(ref)
+  })
 }
 
 export function ascoltaOrdini(cb: (ordini: Ordine[]) => void): () => void {

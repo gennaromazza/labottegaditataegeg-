@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '../auth/AuthContext'
+import { ArticoliProvider } from './ArticoliContext'
 
 const ICONE: Record<string, ReactNode> = {
   ordini: (
@@ -96,7 +97,11 @@ export function Guscio() {
         ))}
         <button className="secondario esci" onClick={() => void esci()}>Esci</button>
       </nav>
-      <div className="contenuto"><Outlet /></div>
+      <div className="contenuto">
+        <ArticoliProvider>
+          <Outlet />
+        </ArticoliProvider>
+      </div>
     </div>
   )
 }

@@ -3,10 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { AvanzamentoOrdine } from '../componenti/AvanzamentoOrdine'
 import { BadgePagamento } from '../componenti/BadgePagamento'
 import { BadgeStato } from '../componenti/BadgeStato'
+import { AvvisoMateriali, useCambioStato } from '../componenti/CambioStato'
 import { MostraAltri, usePaginazione } from '../componenti/Paginazione'
 import { Sezione } from '../componenti/Sezione'
 import { ascoltaClienti } from '../data/clienti'
-import { aggiornaOrdine, ascoltaOrdini } from '../data/ordini'
+import { ascoltaOrdini } from '../data/ordini'
 import { formatData } from '../lib/calcoli'
 import { prossimaAzione } from '../lib/stati'
 import type { Cliente, Ordine, StatoOrdine } from '../lib/tipi'
@@ -23,21 +24,14 @@ const perConsegna = (a: Ordine, b: Ordine) =>
 
 /** Il passo successivo con un tocco, per le schede chiuse (solo dove non serve scrivere altro). */
 function AzioneRapida({ ordine }: { ordine: Ordine }) {
-  const [errore, setErrore] = useState('')
+  const { cambia, procediComunque, ferma, avviso, errore, occupato } = useCambioStato(ordine)
   const azione = prossimaAzione(ordine)
   if (!azione || (ordine.stato !== 'confermato' && ordine.stato !== 'in preparazione')) return null
   return (
     <>
-      <button
-        type="button"
-        onClick={() => {
-          setErrore('')
-          aggiornaOrdine(ordine.id, { stato: azione.stato }).catch(() => setErrore('Non sono riuscito a salvare. Controlla la connessione e riprova.'))
-        }}
-      >
-        {azione.etichetta}
-      </button>
+      <button type="button" disabled={occupato} onClick={() => void cambia(azione.stato)}>{azione.etichetta}</button>
       {errore && <span className="errore" role="alert">{errore}</span>}
+      <AvvisoMateriali avviso={avviso} onProcedi={() => void procediComunque()} onFerma={ferma} occupato={occupato} />
     </>
   )
 }

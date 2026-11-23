@@ -33,6 +33,12 @@ const FATTORE: Record<Unita, number> = { pezzi: 1, g: 1, kg: 1000, ml: 1, l: 100
 /** Quante cifre decimali ha senso scrivere (coincide con le cifre del fattore). */
 const DECIMALI: Record<Unita, number> = { pezzi: 0, g: 0, kg: 3, ml: 0, l: 3, cm: 0, m: 2 }
 
+/** Le unità tra cui scegliere per un materiale: quelle della sua stessa famiglia (per la cera in kg: g e kg). */
+export const unitaCompatibili = (unita: Unita): Unita[] => UNITA.filter((u) => compatibili(u, unita))
+
+/** L'unità con cui di solito si scrive una ricetta: la più piccola (g per i kg, ml per i litri, cm per i metri). */
+export const unitaPerRicetta = (unita: Unita): Unita => (unita === 'kg' ? 'g' : unita === 'l' ? 'ml' : unita === 'm' ? 'cm' : unita)
+
 export const compatibili = (a: Unita, b: Unita): boolean => DIMENSIONE[a] === DIMENSIONE[b]
 
 /** Cambiare unità è libero dentro la stessa famiglia (g↔kg); tra famiglie diverse solo se la giacenza è zero. */
@@ -69,4 +75,12 @@ export function formatQuantita(base: number, unita: Unita): string {
   if (d > 0 && resto > 0) numero += `,${String(resto).padStart(d, '0').replace(/0+$/, '')}`
   const etichetta = unita === 'pezzi' ? (assoluto === 1 ? 'pezzo' : 'pezzi') : unita
   return `${negativo ? '-' : ''}${numero} ${etichetta}`
+}
+
+/** Come formatQuantita, ma con l'unità piccola quando il valore lo è: 300 g invece di 0,3 kg. */
+export function formatQuantitaComoda(base: number, unita: Unita): string {
+  if (unita === 'kg' && Math.abs(base) < 1000) return formatQuantita(base, 'g')
+  if (unita === 'l' && Math.abs(base) < 1000) return formatQuantita(base, 'ml')
+  if (unita === 'm' && Math.abs(base) < 100) return formatQuantita(base, 'cm')
+  return formatQuantita(base, unita)
 }

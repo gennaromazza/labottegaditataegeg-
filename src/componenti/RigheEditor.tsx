@@ -4,6 +4,7 @@ import { normalizza } from '../lib/testo'
 import type { Articolo, Riga } from '../lib/tipi'
 
 export interface RigaForm {
+  articoloId?: string // il prodotto del magazzino da cui nasce la riga (serve per scalare i materiali della ricetta)
   descrizione: string
   testo: string
   quantita: string
@@ -23,6 +24,7 @@ export function righeDaForm(forms: RigaForm[]): Riga[] | null {
     const quantita = Number(f.quantita)
     if (!f.descrizione.trim() || prezzo === null || !Number.isInteger(quantita) || quantita < 1) return null
     out.push({
+      ...(f.articoloId ? { articoloId: f.articoloId } : {}),
       descrizione: f.descrizione.trim(),
       ...(f.testo.trim() ? { testoPersonalizzato: f.testo.trim() } : {}),
       quantita,
@@ -49,14 +51,14 @@ export function RigheEditor({ righe, onChange, listino }: Props) {
   /** Un tocco aggiunge il prodotto; se c'è già una riga uguale (senza testo personalizzato) ne aumenta la quantità. */
   function daListino(v: Articolo) {
     const uguale = righe.findIndex(
-      (r) => r.descrizione === v.nome && parseEuro(r.prezzo) === v.prezzoCent && !r.testo.trim(),
+      (r) => r.articoloId === v.id && parseEuro(r.prezzo) === v.prezzoCent && !r.testo.trim(),
     )
     if (uguale >= 0) {
       const qta = Number(righe[uguale].quantita)
       aggiorna(uguale, { quantita: String(Number.isInteger(qta) && qta >= 1 ? qta + 1 : 1) })
       return
     }
-    const nuova: RigaForm = { descrizione: v.nome, testo: '', quantita: '1', prezzo: centInEuroTesto(v.prezzoCent ?? 0) }
+    const nuova: RigaForm = { articoloId: v.id, descrizione: v.nome, testo: '', quantita: '1', prezzo: centInEuroTesto(v.prezzoCent ?? 0) }
     onChange(righe.length === 1 && vuota(righe[0]) ? [nuova] : [...righe, nuova])
   }
 

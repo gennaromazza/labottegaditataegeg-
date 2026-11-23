@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Clienti from './Clienti'
@@ -76,8 +76,9 @@ it('salva i dati di spedizione validi', async () => {
   await userEvent.type(screen.getByLabelText('Destinatario (se diverso dal cliente)'), 'Anna Rossi')
   await userEvent.type(screen.getByLabelText('Indirizzo'), 'Via Roma 1')
   await userEvent.type(screen.getByLabelText('CAP'), '81031')
-  await userEvent.type(screen.getByLabelText('Città'), 'Aversa')
-  await userEvent.type(screen.getByLabelText('Provincia'), 'ce')
+  // città e provincia si compilano da sole dal CAP
+  await waitFor(() => expect(screen.getByLabelText('Città')).toHaveValue('Aversa'))
+  expect(screen.getByLabelText('Provincia')).toHaveValue('CE')
   await userEvent.click(screen.getByRole('button', { name: 'Salva spedizione' }))
   expect(h.aggiorna).toHaveBeenCalledWith('c1', {
     spedizione: { destinatario: 'Anna Rossi', indirizzo: 'Via Roma 1', cap: '81031', citta: 'Aversa', provincia: 'CE' },
@@ -94,6 +95,42 @@ it('CAP o provincia non validi non salvano', async () => {
   await userEvent.click(screen.getByRole('button', { name: 'Salva spedizione' }))
   expect(await screen.findByText('Il CAP deve avere 5 cifre')).toBeInTheDocument()
   expect(h.aggiorna).not.toHaveBeenCalled()
+})
+
+it('scrivendo la città si suggeriscono comuni con provincia e CAP', async () => {
+  scheda()
+  await userEvent.type(screen.getByLabelText('Città'), 'avers')
+  await userEvent.click(await screen.findByRole('option', { name: /^Aversa \(CE\)/ }))
+  expect(screen.getByLabelText('Città')).toHaveValue('Aversa')
+  expect(screen.getByLabelText('Provincia')).toHaveValue('CE')
+  expect(screen.getByLabelText('CAP')).toHaveValue('81031')
+})
+
+it('una città con più CAP li propone nel campo CAP', async () => {
+  scheda()
+  await userEvent.type(screen.getByLabelText('Città'), 'napol')
+  await userEvent.click(await screen.findByRole('option', { name: /^Napoli \(NA\)/ }))
+  expect(screen.getByLabelText('CAP')).toHaveValue('')
+  const opzioni = document.querySelectorAll('#cap-suggeriti option')
+  expect(opzioni.length).toBeGreaterThan(5)
+})
+
+it('un CAP condiviso da più comuni chiede di scegliere', async () => {
+  scheda()
+  await userEvent.type(screen.getByLabelText('CAP'), '26834')
+  const gruppo = await screen.findByRole('group', { name: 'Comuni con questo CAP' })
+  expect(gruppo).toHaveTextContent('Abbadia Cerreto (LO)')
+  await userEvent.click(screen.getByRole('button', { name: 'Corte Palasio (LO)' }))
+  expect(screen.getByLabelText('Città')).toHaveValue('Corte Palasio')
+  expect(screen.getByLabelText('Provincia')).toHaveValue('LO')
+})
+
+it('un CAP sconosciuto non compila nulla e si può scrivere a mano', async () => {
+  scheda()
+  await userEvent.type(screen.getByLabelText('CAP'), '00000')
+  await userEvent.type(screen.getByLabelText('Città'), 'Posto Nuovo')
+  expect(screen.getByLabelText('Città')).toHaveValue('Posto Nuovo')
+  expect(screen.queryByRole('group', { name: 'Comuni con questo CAP' })).not.toBeInTheDocument()
 })
 
 it('mostra la spedizione già salvata', () => {

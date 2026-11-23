@@ -3,7 +3,7 @@ import { useAuth } from '../auth/AuthContext'
 
 const VOCI = [
   { a: '/spese', t: 'Spese', d: 'Registra le spese e vedi quanto spendi, spedizioni comprese' },
-  { a: '/listino', t: 'Listino', d: 'I tuoi prodotti con i prezzi già pronti' },
+  { a: '/magazzino', t: 'Magazzino', d: 'Materiali e prodotti, con quanto ne resta' },
   { a: '/account', t: 'Account', d: 'Cambia la tua password' },
 ]
 

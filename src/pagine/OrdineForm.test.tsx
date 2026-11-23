@@ -18,12 +18,15 @@ vi.mock('../data/clienti', () => ({
   },
   creaCliente: vi.fn(),
 }))
-vi.mock('../data/listino', () => ({
-  ascoltaListino: (cb: (v: unknown[]) => void) => {
+vi.mock('../data/magazzino', () => ({
+  ascoltaArticoli: (cb: (v: unknown[]) => void) => {
     cb([
-      { id: 'l1', nome: 'Candela grande', prezzoCent: 800, attivo: true },
-      { id: 'l2', nome: 'Segnaposto nome', prezzoCent: 250, attivo: true },
-      { id: 'l3', nome: 'Vecchio prodotto', prezzoCent: 100, attivo: false },
+      { id: 'l1', nome: 'Candela grande', tipo: 'prodotto', unita: 'pezzi', giacenza: 0, prezzoCent: 800, attivo: true },
+      { id: 'l2', nome: 'Segnaposto nome', tipo: 'prodotto', unita: 'pezzi', giacenza: 0, prezzoCent: 250, attivo: true },
+      { id: 'l3', nome: 'Vecchio prodotto', tipo: 'prodotto', unita: 'pezzi', giacenza: 0, prezzoCent: 100, attivo: false },
+      { id: 'l4', nome: 'Cera di soia', tipo: 'materiale', unita: 'kg', giacenza: 5000, attivo: true },
+      { id: 'l5', nome: 'Nastro raso', tipo: 'prodotto', unita: 'm', giacenza: 0, prezzoCent: 150, attivo: true },
+      { id: 'l6', nome: 'Prodotto senza prezzo', tipo: 'prodotto', unita: 'pezzi', giacenza: 0, attivo: true },
     ])
     return () => {}
   },
@@ -161,15 +164,29 @@ it('un prodotto con testo personalizzato resta una riga a parte', async () => {
   expect(screen.getByLabelText('Quantità 1')).toHaveValue('1')
 })
 
-it('la ricerca nel listino filtra e non mostra i prodotti disattivati', async () => {
+it('nel nuovo ordine compaiono solo i Prodotti in uso con un prezzo, non i Materiali', () => {
+  apri()
+  expect(screen.getByRole('button', { name: /Candela grande/ })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /Cera di soia/ })).not.toBeInTheDocument() // materiale
+  expect(screen.queryByRole('button', { name: /Vecchio prodotto/ })).not.toBeInTheDocument() // disattivato
+  expect(screen.queryByRole('button', { name: /Prodotto senza prezzo/ })).not.toBeInTheDocument()
+})
+
+it('un prodotto non venduto a pezzi non si propone (le quantità dell\'ordine sono intere)', () => {
+  apri()
+  expect(screen.queryByRole('button', { name: /Nastro raso/ })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: /Candela grande · 8,00 €$/ })).toBeInTheDocument()
+})
+
+it('la ricerca dei prodotti filtra e non mostra i prodotti disattivati', async () => {
   apri()
   expect(screen.queryByRole('button', { name: /Vecchio prodotto/ })).not.toBeInTheDocument()
-  await userEvent.type(screen.getByLabelText('Cerca nel listino'), 'SEGNA')
+  await userEvent.type(screen.getByLabelText('Cerca un prodotto'), 'SEGNA')
   expect(screen.getByRole('button', { name: /Segnaposto nome/ })).toBeInTheDocument()
   expect(screen.queryByRole('button', { name: /Candela grande/ })).not.toBeInTheDocument()
-  await userEvent.clear(screen.getByLabelText('Cerca nel listino'))
-  await userEvent.type(screen.getByLabelText('Cerca nel listino'), 'zzz')
-  expect(screen.getByText('Nessun prodotto del listino corrisponde.')).toBeInTheDocument()
+  await userEvent.clear(screen.getByLabelText('Cerca un prodotto'))
+  await userEvent.type(screen.getByLabelText('Cerca un prodotto'), 'zzz')
+  expect(screen.getByText('Nessun prodotto corrisponde.')).toBeInTheDocument()
 })
 
 it('riga compilata a metà blocca il salvataggio', async () => {

@@ -36,6 +36,40 @@ export const ETICHETTE_METODO: Record<MetodoPagamento, string> = {
   altro: 'Altro',
 }
 
+import type { Unita } from './unita'
+
+export type TipoArticolo = 'materiale' | 'prodotto'
+export const TIPI_ARTICOLO: TipoArticolo[] = ['materiale', 'prodotto']
+export const ETICHETTE_TIPO: Record<TipoArticolo, string> = { materiale: 'Materiale', prodotto: 'Prodotto' }
+
+/** Un articolo del magazzino. La giacenza è in unità BASE intera (g, ml, cm, pezzi). */
+export interface Articolo {
+  id: string
+  nome: string
+  tipo: TipoArticolo
+  unita: Unita
+  giacenza: number
+  prezzoCent?: number // prezzo di vendita: solo per i Prodotti
+  attivo: boolean
+  note?: string
+}
+
+export type TipoMovimento = 'carico' | 'scarico' | 'rettifica'
+export const ETICHETTE_MOVIMENTO: Record<TipoMovimento, string> = { carico: 'Carico', scarico: 'Scarico', rettifica: 'Correzione' }
+
+export interface Movimento {
+  id: string
+  articoloId: string
+  articoloNome: string
+  tipo: TipoMovimento
+  delta: number // variazione in unità base (negativa per gli scarichi)
+  giacenzaDopo: number
+  unita: Unita
+  nota?: string
+  data: string // YYYY-MM-DD
+  creatoIl: string
+}
+
 export type CategoriaSpesa = 'Materiali' | 'Spedizioni' | 'Imballaggi' | 'Attrezzatura' | 'Pubblicità' | 'Rimborsi' | 'Altro'
 export const CATEGORIE_SPESA: CategoriaSpesa[] = ['Materiali', 'Spedizioni', 'Imballaggi', 'Attrezzatura', 'Pubblicità', 'Rimborsi', 'Altro']
 

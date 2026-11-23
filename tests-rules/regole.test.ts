@@ -29,7 +29,7 @@ describe('regole firestore', () => {
   })
   it.each([AUTORIZZATA, ADMIN])('consente a %s sulle collezioni previste', async (email) => {
     const db = env.authenticatedContext('u2', { email }).firestore()
-    for (const col of ['clienti', 'ordini', 'listino', 'spese', 'meta']) {
+    for (const col of ['clienti', 'ordini', 'listino', 'spese', 'movimenti', 'meta']) {
       await assertSucceeds(setDoc(doc(db, `${col}/x`), { a: 1 }))
       await assertSucceeds(getDoc(doc(db, `${col}/x`)))
     }

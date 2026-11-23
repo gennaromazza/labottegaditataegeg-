@@ -23,19 +23,19 @@ it('il menu ha tutte le sezioni, ognuna con un nome leggibile', () => {
   apri('/ordini')
   const menu = screen.getByRole('navigation', { name: 'Menu principale' })
   const nomi = within(menu).getAllByRole('link').map((a) => a.textContent)
-  expect(nomi).toEqual(['Ordini', 'Spedizioni', 'Clienti', 'Incassi', 'Spese', 'Listino', 'Account', 'Altro'])
+  expect(nomi).toEqual(['Ordini', 'Spedizioni', 'Clienti', 'Incassi', 'Spese', 'Magazzino', 'Account', 'Altro'])
 })
 
-it('su telefono restano 5 voci: Spese, Listino e Account stanno sotto Altro, che c\'è solo su telefono', () => {
+it('su telefono restano 5 voci: Spese, Magazzino e Account stanno sotto Altro, che c\'è solo su telefono', () => {
   apri('/ordini')
   const soloDesktop = [...document.querySelectorAll('.menu a.solo-desktop')].map((a) => a.textContent)
   const soloMobile = [...document.querySelectorAll('.menu a.solo-mobile')].map((a) => a.textContent)
-  expect(soloDesktop).toEqual(['Spese', 'Listino', 'Account'])
+  expect(soloDesktop).toEqual(['Spese', 'Magazzino', 'Account'])
   expect(soloMobile).toEqual(['Altro'])
   expect(document.querySelectorAll('.menu a:not(.solo-desktop)')).toHaveLength(5)
 })
 
-it('dentro Spese, Listino o Account la voce Altro resta evidenziata', () => {
+it('dentro Spese, Magazzino o Account la voce Altro resta evidenziata', () => {
   apri('/spese')
   expect(screen.getByRole('link', { name: 'Altro' })).toHaveClass('attiva')
   expect(screen.getByRole('link', { name: 'Ordini' })).not.toHaveClass('attiva')

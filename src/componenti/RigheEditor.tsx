@@ -1,8 +1,7 @@
 import { useState } from 'react'
-import type { VoceListino } from '../data/listino'
 import { centInEuroTesto, parseEuro } from '../lib/importi'
 import { normalizza } from '../lib/testo'
-import type { Riga } from '../lib/tipi'
+import type { Articolo, Riga } from '../lib/tipi'
 
 export interface RigaForm {
   descrizione: string
@@ -38,7 +37,7 @@ const MAX_SUGGERITI = 8
 interface Props {
   righe: RigaForm[]
   onChange: (r: RigaForm[]) => void
-  listino: VoceListino[]
+  listino: Articolo[]
 }
 
 export function RigheEditor({ righe, onChange, listino }: Props) {
@@ -48,7 +47,7 @@ export function RigheEditor({ righe, onChange, listino }: Props) {
     onChange(righe.map((r, k) => (k === i ? { ...r, ...patch } : r)))
 
   /** Un tocco aggiunge il prodotto; se c'è già una riga uguale (senza testo personalizzato) ne aumenta la quantità. */
-  function daListino(v: VoceListino) {
+  function daListino(v: Articolo) {
     const uguale = righe.findIndex(
       (r) => r.descrizione === v.nome && parseEuro(r.prezzo) === v.prezzoCent && !r.testo.trim(),
     )
@@ -57,11 +56,13 @@ export function RigheEditor({ righe, onChange, listino }: Props) {
       aggiorna(uguale, { quantita: String(Number.isInteger(qta) && qta >= 1 ? qta + 1 : 1) })
       return
     }
-    const nuova: RigaForm = { descrizione: v.nome, testo: '', quantita: '1', prezzo: centInEuroTesto(v.prezzoCent) }
+    const nuova: RigaForm = { descrizione: v.nome, testo: '', quantita: '1', prezzo: centInEuroTesto(v.prezzoCent ?? 0) }
     onChange(righe.length === 1 && vuota(righe[0]) ? [nuova] : [...righe, nuova])
   }
 
-  const attive = listino.filter((v) => v.attivo)
+  // nel nuovo ordine si propongono solo i Prodotti in uso, venduti a pezzi e con un prezzo (le quantità dell'ordine sono intere);
+  // i Materiali restano in magazzino
+  const attive = listino.filter((v) => v.attivo && v.tipo === 'prodotto' && v.unita === 'pezzi' && v.prezzoCent !== undefined)
   const q = normalizza(ricerca)
   const corrispondenti = q ? attive.filter((v) => normalizza(v.nome).includes(q)) : attive
   const suggeriti = corrispondenti.slice(0, MAX_SUGGERITI)
@@ -70,7 +71,7 @@ export function RigheEditor({ righe, onChange, listino }: Props) {
     <div>
       {attive.length > 0 && (
         <section className="scheda" aria-label="Listino">
-          <label htmlFor="cerca-listino">Cerca nel listino</label>
+          <label htmlFor="cerca-listino">Cerca un prodotto</label>
           <input id="cerca-listino" autoComplete="off" value={ricerca} onChange={(e) => setRicerca(e.target.value)} />
           <div style={{ marginTop: '.5rem' }}>
             {suggeriti.map((v) => (
@@ -81,11 +82,11 @@ export function RigheEditor({ righe, onChange, listino }: Props) {
                 style={{ margin: '0 .4rem .4rem 0' }}
                 onClick={() => daListino(v)}
               >
-                + {v.nome} · {centInEuroTesto(v.prezzoCent)} €
+                + {v.nome} · {centInEuroTesto(v.prezzoCent ?? 0)} €
               </button>
             ))}
           </div>
-          {suggeriti.length === 0 && <p>Nessun prodotto del listino corrisponde.</p>}
+          {suggeriti.length === 0 && <p>Nessun prodotto corrisponde.</p>}
           {corrispondenti.length > suggeriti.length && (
             <p>Mostrati {suggeriti.length} di {corrispondenti.length}: scrivi per cercare.</p>
           )}

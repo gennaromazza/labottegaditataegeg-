@@ -4,19 +4,19 @@ import { ascoltaCliente } from '../data/clienti'
 import { SelezionaCliente } from '../componenti/SelezionaCliente'
 import { RigheEditor, righeDaForm, rigaVuota, type RigaForm } from '../componenti/RigheEditor'
 import { creaOrdine } from '../data/ordini'
-import { ascoltaListino, type VoceListino } from '../data/listino'
+import { ascoltaArticoli } from '../data/magazzino'
 import { oggiISO } from '../data/util'
 import { formatEuro, totaleCent } from '../lib/calcoli'
 import { parseEuro } from '../lib/importi'
 import { statoIniziale } from '../lib/stati'
-import { CANALI, ETICHETTE_METODO, METODI, type Canale, type Cliente, type MetodoPagamento, type Pagamento } from '../lib/tipi'
+import { CANALI, ETICHETTE_METODO, METODI, type Articolo, type Canale, type Cliente, type MetodoPagamento, type Pagamento } from '../lib/tipi'
 
 export default function OrdineForm() {
   const navigate = useNavigate()
   const [cliente, setCliente] = useState<Cliente | null>(null)
   const [canale, setCanale] = useState<Canale>('WhatsApp')
   const [righe, setRighe] = useState<RigaForm[]>([rigaVuota()])
-  const [listino, setListino] = useState<VoceListino[]>([])
+  const [listino, setListino] = useState<Articolo[]>([])
   const [acconto, setAcconto] = useState('')
   const [metodo, setMetodo] = useState<MetodoPagamento | ''>('')
   const [consegna, setConsegna] = useState('')
@@ -24,7 +24,7 @@ export default function OrdineForm() {
   const [errore, setErrore] = useState('')
   const [invio, setInvio] = useState(false)
 
-  useEffect(() => ascoltaListino(setListino), [])
+  useEffect(() => ascoltaArticoli(setListino), [])
 
   // /ordini/nuovo?cliente=<id>: parte dalla scheda cliente con il cliente già scelto
   const [params] = useSearchParams()

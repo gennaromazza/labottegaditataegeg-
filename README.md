@@ -34,6 +34,17 @@ Solo gli account email/password creati da noi, e solo le email elencate in `fire
 
 `npm run test:rules` usa l'emulatore Firestore, che richiede **Java** installato.
 
+## Magazzino
+
+La pagina `/magazzino` (prima Listino) è un'unica lista di **articoli**: *Materiale* (si consuma nelle ricette) o *Prodotto* (si vende, sempre a pezzi, con un prezzo).
+Design: `docs/superpowers/specs/2026-11-23-magazzino-design.md`.
+
+- **Unità**: pezzi, g, kg, ml, l, cm, m. La giacenza è salvata in unità base intera (g, ml, cm, pezzi): 1,25 kg = 1250. `src/lib/unita.ts` converte e valida (kg e l fino a 3 decimali, m fino a 2, il resto interi). Le future ricette potranno usare grammi su una scorta in chili con `inBase()`.
+- **Movimenti**: carico, scarico, correzione (inventario). Ogni movimento aggiorna la giacenza e scrive lo storico nella stessa transazione (`registraMovimento` in `src/data/magazzino.ts`). Uno scarico oltre la giacenza è rifiutato.
+- Collezione `listino` mantenuta (nome storico) con i campi nuovi letti con valori predefiniti: nessuna migrazione. Nuova collezione `movimenti`.
+- Nel nuovo ordine si propongono solo i Prodotti in uso, a pezzi, con prezzo.
+- Non ci sono ancora: ricette, scorta minima, costo per unità, scarico automatico alla vendita.
+
 ## Stati degli ordini e Spedizioni
 
 Flusso: **in attesa di acconto → confermato → in preparazione → pronto da spedire → spedito → consegnato** (oppure annullato).

@@ -30,10 +30,10 @@ const ICONE: Record<string, ReactNode> = {
       <path d="M9 8h6M9 12h6" />
     </>
   ),
-  listino: (
+  magazzino: (
     <>
-      <path d="M3 12V4h8l10 10-8 8z" />
-      <circle cx="7.5" cy="8.5" r="1" />
+      <path d="M3 8l9-5 9 5v9l-9 5-9-5z" />
+      <path d="M3 8l9 5 9-5M12 13v9" />
     </>
   ),
   account: (
@@ -66,9 +66,9 @@ const VOCI: { a: string; t: string; i: string; solo?: 'desktop' | 'mobile'; figl
   { a: '/clienti', t: 'Clienti', i: 'clienti' },
   { a: '/incassi', t: 'Incassi', i: 'incassi' },
   { a: '/spese', t: 'Spese', i: 'spese', solo: 'desktop' },
-  { a: '/listino', t: 'Listino', i: 'listino', solo: 'desktop' },
+  { a: '/magazzino', t: 'Magazzino', i: 'magazzino', solo: 'desktop' },
   { a: '/account', t: 'Account', i: 'account', solo: 'desktop' },
-  { a: '/altro', t: 'Altro', i: 'altro', solo: 'mobile', figlie: ['/spese', '/listino', '/account'] },
+  { a: '/altro', t: 'Altro', i: 'altro', solo: 'mobile', figlie: ['/spese', '/magazzino', '/listino', '/account'] },
 ]
 
 export function Guscio() {

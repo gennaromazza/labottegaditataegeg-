@@ -13,7 +13,7 @@ import Spese from './pagine/Spese'
 import Account from './pagine/Account'
 import Spedizioni from './pagine/Spedizioni'
 import Altro from './pagine/Altro'
-import Listino from './pagine/Listino'
+import Magazzino from './pagine/Magazzino'
 
 export default function App() {
   return (
@@ -32,7 +32,8 @@ export default function App() {
             <Route path="/account" element={<Account />} />
             <Route path="/spedizioni" element={<Spedizioni />} />
             <Route path="/altro" element={<Altro />} />
-            <Route path="/listino" element={<Listino />} />
+            <Route path="/magazzino" element={<Magazzino />} />
+            <Route path="/listino" element={<Navigate to="/magazzino" replace />} />
           </Route>
         </Route>
         <Route path="*" element={<Navigate to="/ordini" replace />} />

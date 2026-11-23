@@ -13,10 +13,10 @@ const apri = () =>
     </MemoryRouter>,
   )
 
-it('raccoglie Spese, Listino e Account', () => {
+it('raccoglie Spese, Magazzino e Account', () => {
   apri()
   expect(screen.getByRole('link', { name: /^Spese/ })).toHaveAttribute('href', '/spese')
-  expect(screen.getByRole('link', { name: /^Listino/ })).toHaveAttribute('href', '/listino')
+  expect(screen.getByRole('link', { name: /^Magazzino/ })).toHaveAttribute('href', '/magazzino')
   expect(screen.getByRole('link', { name: /^Account/ })).toHaveAttribute('href', '/account')
 })
 

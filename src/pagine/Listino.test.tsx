@@ -6,7 +6,10 @@ const h = vi.hoisted(() => ({ salva: vi.fn() }))
 
 vi.mock('../data/listino', () => ({
   ascoltaListino: (cb: (v: unknown[]) => void) => {
-    cb([{ id: 'l1', nome: 'Candela grande', prezzoCent: 800, attivo: true }])
+    cb([
+      { id: 'l1', nome: 'Candela grande', prezzoCent: 800, attivo: true },
+      { id: 'l2', nome: 'Segnaposto nome', prezzoCent: 250, attivo: false },
+    ])
     return () => {}
   },
   salvaVoceListino: (...a: unknown[]) => h.salva(...a),
@@ -35,6 +38,18 @@ it('disattiva una voce', async () => {
   render(<Listino />)
   await userEvent.click(screen.getByRole('button', { name: /Disattiva Candela grande/ }))
   expect(h.salva).toHaveBeenCalledWith({ id: 'l1', nome: 'Candela grande', prezzoCent: 800, attivo: false })
+})
+
+it('la ricerca filtra le voci (anche disattivate) senza badare ad accenti e maiuscole', async () => {
+  render(<Listino />)
+  expect(screen.getByText('Candela grande')).toBeInTheDocument()
+  expect(screen.getByText('Segnaposto nome')).toBeInTheDocument()
+  await userEvent.type(screen.getByLabelText('Cerca nel listino'), 'SEGNAPOSTO')
+  expect(screen.queryByText('Candela grande')).not.toBeInTheDocument()
+  expect(screen.getByText('Segnaposto nome')).toBeInTheDocument()
+  await userEvent.clear(screen.getByLabelText('Cerca nel listino'))
+  await userEvent.type(screen.getByLabelText('Cerca nel listino'), 'xyz')
+  expect(screen.getByText('Nessun prodotto corrisponde alla ricerca.')).toBeInTheDocument()
 })
 
 it('nome o prezzo mancanti non salvano', async () => {

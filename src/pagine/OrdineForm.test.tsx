@@ -20,7 +20,11 @@ vi.mock('../data/clienti', () => ({
 }))
 vi.mock('../data/listino', () => ({
   ascoltaListino: (cb: (v: unknown[]) => void) => {
-    cb([{ id: 'l1', nome: 'Candela grande', prezzoCent: 800, attivo: true }])
+    cb([
+      { id: 'l1', nome: 'Candela grande', prezzoCent: 800, attivo: true },
+      { id: 'l2', nome: 'Segnaposto nome', prezzoCent: 250, attivo: true },
+      { id: 'l3', nome: 'Vecchio prodotto', prezzoCent: 100, attivo: false },
+    ])
     return () => {}
   },
 }))
@@ -107,12 +111,45 @@ it('il totale si aggiorna e l\'acconto diventa il primo pagamento', async () => 
 
 it('il listino precompila nome e prezzo, modificabili', async () => {
   apri()
-  await userEvent.selectOptions(screen.getByLabelText('Aggiungi dal listino'), 'l1')
+  await userEvent.click(screen.getByRole('button', { name: /Candela grande · 8,00/ }))
   expect(screen.getByLabelText('Prodotto 1')).toHaveValue('Candela grande')
   expect(screen.getByLabelText(/Prezzo unitario 1/)).toHaveValue('8,00')
   await userEvent.clear(screen.getByLabelText(/Prezzo unitario 1/))
   await userEvent.type(screen.getByLabelText(/Prezzo unitario 1/), '9')
   expect(screen.getByTestId('totale').textContent).toMatch(/9,00/)
+})
+
+it('toccare due volte lo stesso prodotto aumenta la quantità, un altro prodotto aggiunge una riga', async () => {
+  apri()
+  const candela = screen.getByRole('button', { name: /Candela grande · 8,00/ })
+  await userEvent.click(candela)
+  await userEvent.click(candela)
+  expect(screen.getByLabelText('Quantità 1')).toHaveValue('2')
+  expect(screen.getByTestId('totale').textContent).toMatch(/16,00/)
+  await userEvent.click(screen.getByRole('button', { name: /Segnaposto nome · 2,50/ }))
+  expect(screen.getByLabelText('Prodotto 2')).toHaveValue('Segnaposto nome')
+  expect(screen.getByTestId('totale').textContent).toMatch(/18,50/)
+})
+
+it('un prodotto con testo personalizzato resta una riga a parte', async () => {
+  apri()
+  const candela = screen.getByRole('button', { name: /Candela grande · 8,00/ })
+  await userEvent.click(candela)
+  await userEvent.type(screen.getByLabelText('Testo personalizzato 1'), 'Mario')
+  await userEvent.click(candela)
+  expect(screen.getByLabelText('Prodotto 2')).toHaveValue('Candela grande')
+  expect(screen.getByLabelText('Quantità 1')).toHaveValue('1')
+})
+
+it('la ricerca nel listino filtra e non mostra i prodotti disattivati', async () => {
+  apri()
+  expect(screen.queryByRole('button', { name: /Vecchio prodotto/ })).not.toBeInTheDocument()
+  await userEvent.type(screen.getByLabelText('Cerca nel listino'), 'SEGNA')
+  expect(screen.getByRole('button', { name: /Segnaposto nome/ })).toBeInTheDocument()
+  expect(screen.queryByRole('button', { name: /Candela grande/ })).not.toBeInTheDocument()
+  await userEvent.clear(screen.getByLabelText('Cerca nel listino'))
+  await userEvent.type(screen.getByLabelText('Cerca nel listino'), 'zzz')
+  expect(screen.getByText('Nessun prodotto del listino corrisponde.')).toBeInTheDocument()
 })
 
 it('riga compilata a metà blocca il salvataggio', async () => {

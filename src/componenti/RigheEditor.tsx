@@ -1,5 +1,7 @@
+import { useState } from 'react'
 import type { VoceListino } from '../data/listino'
 import { centInEuroTesto, parseEuro } from '../lib/importi'
+import { normalizza } from '../lib/testo'
 import type { Riga } from '../lib/tipi'
 
 export interface RigaForm {
@@ -31,6 +33,8 @@ export function righeDaForm(forms: RigaForm[]): Riga[] | null {
   return out
 }
 
+const MAX_SUGGERITI = 8
+
 interface Props {
   righe: RigaForm[]
   onChange: (r: RigaForm[]) => void
@@ -38,30 +42,54 @@ interface Props {
 }
 
 export function RigheEditor({ righe, onChange, listino }: Props) {
+  const [ricerca, setRicerca] = useState('')
+
   const aggiorna = (i: number, patch: Partial<RigaForm>) =>
     onChange(righe.map((r, k) => (k === i ? { ...r, ...patch } : r)))
 
-  function daListino(id: string) {
-    const v = listino.find((x) => x.id === id)
-    if (!v) return
+  /** Un tocco aggiunge il prodotto; se c'è già una riga uguale (senza testo personalizzato) ne aumenta la quantità. */
+  function daListino(v: VoceListino) {
+    const uguale = righe.findIndex(
+      (r) => r.descrizione === v.nome && parseEuro(r.prezzo) === v.prezzoCent && !r.testo.trim(),
+    )
+    if (uguale >= 0) {
+      const qta = Number(righe[uguale].quantita)
+      aggiorna(uguale, { quantita: String(Number.isInteger(qta) && qta >= 1 ? qta + 1 : 1) })
+      return
+    }
     const nuova: RigaForm = { descrizione: v.nome, testo: '', quantita: '1', prezzo: centInEuroTesto(v.prezzoCent) }
     onChange(righe.length === 1 && vuota(righe[0]) ? [nuova] : [...righe, nuova])
   }
 
   const attive = listino.filter((v) => v.attivo)
+  const q = normalizza(ricerca)
+  const corrispondenti = q ? attive.filter((v) => normalizza(v.nome).includes(q)) : attive
+  const suggeriti = corrispondenti.slice(0, MAX_SUGGERITI)
 
   return (
     <div>
       {attive.length > 0 && (
-        <>
-          <label htmlFor="da-listino">Aggiungi dal listino</label>
-          <select id="da-listino" value="" onChange={(e) => daListino(e.target.value)}>
-            <option value="">Scegli un prodotto…</option>
-            {attive.map((v) => (
-              <option key={v.id} value={v.id}>{v.nome} – {centInEuroTesto(v.prezzoCent)} €</option>
+        <section className="scheda" aria-label="Listino">
+          <label htmlFor="cerca-listino">Cerca nel listino</label>
+          <input id="cerca-listino" autoComplete="off" value={ricerca} onChange={(e) => setRicerca(e.target.value)} />
+          <div style={{ marginTop: '.5rem' }}>
+            {suggeriti.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                className="secondario"
+                style={{ margin: '0 .4rem .4rem 0' }}
+                onClick={() => daListino(v)}
+              >
+                + {v.nome} · {centInEuroTesto(v.prezzoCent)} €
+              </button>
             ))}
-          </select>
-        </>
+          </div>
+          {suggeriti.length === 0 && <p>Nessun prodotto del listino corrisponde.</p>}
+          {corrispondenti.length > suggeriti.length && (
+            <p>Mostrati {suggeriti.length} di {corrispondenti.length}: scrivi per cercare.</p>
+          )}
+        </section>
       )}
       {righe.map((r, i) => (
         <div className="scheda" key={i}>

@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { ascoltaListino, salvaVoceListino, type VoceListino } from '../data/listino'
 import { centInEuroTesto, parseEuro } from '../lib/importi'
+import { normalizza } from '../lib/testo'
 
 function VoceRiga({ voce }: { voce: VoceListino }) {
   const [prezzo, setPrezzo] = useState(centInEuroTesto(voce.prezzoCent))
@@ -41,8 +42,12 @@ export default function Listino() {
   const [nome, setNome] = useState('')
   const [prezzo, setPrezzo] = useState('')
   const [errore, setErrore] = useState('')
+  const [ricerca, setRicerca] = useState('')
 
   useEffect(() => ascoltaListino(setVoci), [])
+
+  const q = normalizza(ricerca)
+  const visibili = q ? voci.filter((v) => normalizza(v.nome).includes(q)) : voci
 
   async function aggiungi(e: FormEvent) {
     e.preventDefault()
@@ -70,7 +75,12 @@ export default function Listino() {
         {errore && <p className="errore" role="alert">{errore}</p>}
         <p><button type="submit">Aggiungi al listino</button></p>
       </form>
-      {voci.map((v) => <VoceRiga key={v.id} voce={v} />)}
+      <label htmlFor="cerca-voci">Cerca nel listino</label>
+      <input id="cerca-voci" autoComplete="off" value={ricerca} onChange={(e) => setRicerca(e.target.value)} />
+      <div style={{ marginTop: '.75rem' }}>
+        {visibili.length === 0 && <p>{voci.length === 0 ? 'Il listino è vuoto.' : 'Nessun prodotto corrisponde alla ricerca.'}</p>}
+        {visibili.map((v) => <VoceRiga key={v.id} voce={v} />)}
+      </div>
     </main>
   )
 }

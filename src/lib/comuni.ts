@@ -1,15 +1,9 @@
 /** [nome, sigla provincia, CAP]. Dati ISTAT/CAP del database non ufficiale comuni-json: la completezza dei CAP non è garantita. */
 export type Comune = [nome: string, sigla: string, cap: string[]]
 
-export function normalizza(testo: string): string {
-  return testo
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/['’`]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-}
+import { normalizza } from './testo'
+
+export { normalizza }
 
 export function cercaPerCap(comuni: Comune[], cap: string): Comune[] {
   return comuni.filter((c) => c[2].includes(cap))

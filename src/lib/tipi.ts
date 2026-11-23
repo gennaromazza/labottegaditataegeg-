@@ -132,6 +132,7 @@ export interface Ordine {
   dataSpedizione?: string // YYYY-MM-DD
   scaricoMagazzino?: ScaricoMagazzino // presente se i materiali sono già stati scalati
   dataConsegna?: string
+  costoSpedizioneCent?: number // quanto paga il cliente per la spedizione: assente = nessuna riga, 0 = gratuita
   note?: string
   creatoIl: string
   pagamenti: Pagamento[]

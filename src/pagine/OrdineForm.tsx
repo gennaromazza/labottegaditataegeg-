@@ -21,6 +21,7 @@ export default function OrdineForm() {
   const [acconto, setAcconto] = useState('')
   const [metodo, setMetodo] = useState<MetodoPagamento | ''>('')
   const [consegna, setConsegna] = useState('')
+  const [spedizione, setSpedizione] = useState('')
   const [note, setNote] = useState('')
   const [errore, setErrore] = useState('')
   const [invio, setInvio] = useState(false)
@@ -38,11 +39,14 @@ export default function OrdineForm() {
   }, [clienteDaLink])
 
   const valide = righeDaForm(righe)
-  const totale = valide ? totaleCent(valide) : 0
+  // vuoto = nessuna riga di spedizione (ritiro a mano); 0 = "spedizione gratuita"
+  const spedizioneCent = spedizione.trim() ? parseEuro(spedizione) : undefined
+  const totale = (valide ? totaleCent(valide) : 0) + (spedizioneCent ?? 0)
 
   async function salva(e: FormEvent) {
     e.preventDefault()
     if (!cliente) return setErrore('Scegli o crea il cliente')
+    if (spedizione.trim() && spedizioneCent === null) return setErrore('Il costo di spedizione non è valido (scrivi per esempio 5,90, oppure 0 se è gratuita)')
     if (!valide || valide.length === 0) return setErrore('Aggiungi almeno un prodotto con nome, quantità e prezzo validi')
     let pagamenti: Pagamento[] = []
     if (acconto.trim()) {
@@ -61,6 +65,7 @@ export default function OrdineForm() {
         righe: valide,
         stato: statoIniziale(pagamenti.reduce((s, p) => s + p.importoCent, 0)),
         ...(consegna ? { dataConsegna: consegna } : {}),
+        ...(spedizioneCent !== undefined && spedizioneCent !== null ? { costoSpedizioneCent: spedizioneCent } : {}),
         ...(note.trim() ? { note: note.trim() } : {}),
         pagamenti,
       })
@@ -94,7 +99,14 @@ export default function OrdineForm() {
 
         <h2>Prodotti</h2>
         <RigheEditor righe={righe} onChange={setRighe} listino={listino} />
-        <p>Totale: <strong data-testid="totale">{formatEuro(totale)}</strong></p>
+        <section className="scheda">
+          <label htmlFor="spedizione">Costo di spedizione per il cliente (€, facoltativo)</label>
+          <input id="spedizione" inputMode="decimal" value={spedizione} onChange={(e) => setSpedizione(e.target.value)} />
+          <p className="nota">Si somma al totale e compare nel messaggio WhatsApp. Lascia vuoto se non c&apos;è spedizione (ritiro a mano); scrivi 0 per «spedizione gratuita».</p>
+        </section>
+        <p>
+          Totale{spedizioneCent ? ' (spedizione compresa)' : ''}: <strong data-testid="totale">{formatEuro(totale)}</strong>
+        </p>
 
         <section className="scheda">
           <label htmlFor="acconto">Acconto ricevuto (€, facoltativo)</label>

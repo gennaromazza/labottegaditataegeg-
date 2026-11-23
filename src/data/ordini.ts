@@ -99,6 +99,11 @@ export async function cambiaStatoOrdine(
   })
 }
 
+/** Imposta il costo di spedizione che il cliente paga (0 = gratuita); `null` toglie la riga di spedizione dall'ordine. */
+export async function impostaCostoSpedizione(id: string, cent: number | null): Promise<void> {
+  await updateDoc(doc(db, 'ordini', id), { costoSpedizioneCent: cent === null ? deleteField() : cent })
+}
+
 /** Read-modify-write in transazione, così due acconti uguali non si fondono e nessuno si perde. */
 export async function aggiungiPagamento(id: string, p: Pagamento): Promise<void> {
   const ref = doc(db, 'ordini', id)

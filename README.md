@@ -34,6 +34,14 @@ Solo gli account email/password creati da noi, e solo le email elencate in `fire
 
 `npm run test:rules` usa l'emulatore Firestore, che richiede **Java** installato.
 
+## Costo di spedizione per il cliente
+
+- Nel modulo ordine il campo **Costo di spedizione per il cliente** (facoltativo) si somma al totale. **Vuoto** = nessuna riga di spedizione (ritiro a mano, ordini vecchi); **0** = «spedizione gratuita».
+- Il totale che il cliente deve pagare è `totaleOrdineCent` (prodotti + spedizione, in `src/lib/calcoli.ts`): lo usano residuo, stato del pagamento, Incassi, clienti, messaggio WhatsApp e PDF.
+- Messaggio WhatsApp: riga "Spedizione: 5,90 €" (o "Spedizione gratuita") e "Totale (spedizione compresa)".
+- Si può impostare, cambiare o togliere anche dopo, nel dettaglio ordine (sezione *Costo di spedizione*).
+- Non va confuso con la categoria *Spedizioni* nelle Spese, che è quanto spendete voi con il corriere (serve per l'utile).
+
 ## Ricette e scarico automatico del magazzino
 
 Design: `docs/superpowers/specs/2026-11-23-ricette-design.md`.

@@ -249,3 +249,61 @@ describe('righe collegate al prodotto del magazzino (servono per scalare i mater
     expect(h.crea.mock.calls[0][0].righe).toEqual([{ articoloId: 'l1', descrizione: 'Candela grande', quantita: 2, prezzoUnitarioCent: 800 }])
   })
 })
+
+describe('costo di spedizione nel modulo ordine', () => {
+  async function conUnProdotto() {
+    apri()
+    await scegliCliente()
+    await userEvent.type(screen.getByLabelText('Prodotto 1'), 'Candela')
+    await userEvent.type(screen.getByLabelText(/Prezzo unitario 1/), '17,50')
+  }
+  const campo = () => screen.getByLabelText(/Costo di spedizione/)
+
+  it('il campo c\'è ed è facoltativo: vuoto = nessuna riga di spedizione nell\'ordine', async () => {
+    await conUnProdotto()
+    await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+    expect('costoSpedizioneCent' in h.crea.mock.calls[0][0]).toBe(false)
+  })
+
+  it('5,90 € di spedizione: si salva in centesimi e il totale la comprende', async () => {
+    await conUnProdotto()
+    await userEvent.type(campo(), '5,90')
+    expect(screen.getByTestId('totale').textContent).toMatch(/23,40/)
+    expect(screen.getByText(/Totale \(spedizione compresa\)/)).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+    expect(h.crea.mock.calls[0][0].costoSpedizioneCent).toBe(590)
+  })
+
+  it('0 vuol dire "spedizione gratuita": si salva 0 e il totale non cambia', async () => {
+    await conUnProdotto()
+    await userEvent.type(campo(), '0')
+    expect(screen.getByTestId('totale').textContent).toMatch(/17,50/)
+    await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+    expect(h.crea.mock.calls[0][0].costoSpedizioneCent).toBe(0)
+  })
+
+  it('un importo non valido blocca il salvataggio con un messaggio chiaro', async () => {
+    await conUnProdotto()
+    await userEvent.type(campo(), 'abc')
+    await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+    expect(await screen.findByText(/costo di spedizione non è valido/i)).toBeInTheDocument()
+    expect(h.crea).not.toHaveBeenCalled()
+  })
+
+  it('un importo negativo non è valido', async () => {
+    await conUnProdotto()
+    await userEvent.type(campo(), '-3')
+    await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+    expect(await screen.findByText(/costo di spedizione non è valido/i)).toBeInTheDocument()
+    expect(h.crea).not.toHaveBeenCalled()
+  })
+
+  it('l\'acconto ricevuto si confronta con il totale comprensivo di spedizione (l\'ordine nasce confermato)', async () => {
+    await conUnProdotto()
+    await userEvent.type(campo(), '5,90')
+    await userEvent.type(screen.getByLabelText(/Acconto ricevuto/), '10')
+    await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
+    expect(h.crea.mock.calls[0][0].stato).toBe('confermato')
+    expect(h.crea.mock.calls[0][0].pagamenti).toEqual([{ importoCent: 1000, data: expect.any(String) }])
+  })
+})

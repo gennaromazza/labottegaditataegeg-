@@ -4,13 +4,14 @@ import { BadgePagamento } from '../componenti/BadgePagamento'
 import { ascoltaCliente } from '../data/clienti'
 import { aggiungiPagamento, ascoltaOrdine, ascoltaOrdini, eliminaOrdine, rimuoviPagamento } from '../data/ordini'
 import { oggiISO } from '../data/util'
-import { formatData, formatEuro, residuoCent, totaleCent, versatoCent } from '../lib/calcoli'
+import { formatData, formatEuro, haSpedizione, residuoCent, spedizioneCent, totaleOrdineCent, versatoCent } from '../lib/calcoli'
 import { parseEuro } from '../lib/importi'
 import { linkOrdine } from '../lib/link'
 import { generaPdfOrdine } from '../lib/pdf'
 import { linkWhatsApp, testoIndirizzo } from '../lib/whatsapp'
 import { AvanzamentoOrdine } from '../componenti/AvanzamentoOrdine'
 import { Briciole } from '../componenti/Briciole'
+import { CostoSpedizione } from '../componenti/CostoSpedizione'
 import { AvvisoMateriali, useCambioStato } from '../componenti/CambioStato'
 import { Sezione } from '../componenti/Sezione'
 import { BadgeStato } from '../componenti/BadgeStato'
@@ -235,8 +236,14 @@ export default function OrdineDettaglio() {
             <span>{formatEuro(r.quantita * r.prezzoUnitarioCent)}</span>
           </div>
         ))}
+        {haSpedizione(ordine) && (
+          <div className="riga">
+            <span>Spedizione</span>
+            <span>{spedizioneCent(ordine) > 0 ? formatEuro(spedizioneCent(ordine)) : 'gratuita'}</span>
+          </div>
+        )}
         <hr />
-        <div className="riga"><span>Totale</span><strong>{formatEuro(totaleCent(ordine.righe))}</strong></div>
+        <div className="riga"><span>Totale{spedizioneCent(ordine) > 0 ? ' (spedizione compresa)' : ''}</span><strong>{formatEuro(totaleOrdineCent(ordine))}</strong></div>
         <div className="riga"><span>Versato</span><strong>{formatEuro(versatoCent(ordine))}</strong></div>
         {ordine.stato !== 'annullato' && (
           <div className="riga">
@@ -289,6 +296,9 @@ export default function OrdineDettaglio() {
       </Sezione>
 
       <div className="no-stampa">
+        <Sezione titolo="Costo di spedizione" ricorda="dettaglio:costo-spedizione" aperta={!haSpedizione(ordine)}>
+          <CostoSpedizione key={`${ordine.id}-${ordine.costoSpedizioneCent ?? 'x'}`} ordine={ordine} />
+        </Sezione>
         <Sezione titolo="Altre azioni" ricorda="dettaglio:azioni">
           <p>
             <button type="button" className="pericolo" onClick={eliminaQuestoOrdine}>Elimina ordine</button>

@@ -6,12 +6,28 @@ export function totaleCent(righe: Riga[]): number {
   return righe.reduce((s, r) => s + r.quantita * r.prezzoUnitarioCent, 0)
 }
 
+/** C'è una riga di spedizione nell'ordine? (0 = gratuita; assente = nessuna riga, come negli ordini vecchi o nei ritiri). */
+export function haSpedizione(o: Ordine): boolean {
+  const c = o.costoSpedizioneCent
+  return typeof c === 'number' && Number.isFinite(c) && c >= 0
+}
+
+/** Quanto paga il cliente di spedizione (0 se non c'è o se il valore non è valido). */
+export function spedizioneCent(o: Ordine): number {
+  return haSpedizione(o) ? (o.costoSpedizioneCent as number) : 0
+}
+
+/** Il totale che il cliente deve pagare: prodotti più spedizione. */
+export function totaleOrdineCent(o: Ordine): number {
+  return totaleCent(o.righe) + spedizioneCent(o)
+}
+
 export function versatoCent(o: Ordine): number {
   return o.pagamenti.reduce((s, p) => s + p.importoCent, 0)
 }
 
 export function residuoCent(o: Ordine): number {
-  return totaleCent(o.righe) - versatoCent(o)
+  return totaleOrdineCent(o) - versatoCent(o)
 }
 
 export function statoPagamento(o: Ordine): StatoPagamento {

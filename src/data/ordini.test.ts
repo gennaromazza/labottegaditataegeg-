@@ -1,7 +1,7 @@
 import { azzera, elenco, inserisci, leggi } from '../test-utils/fakeFirestore'
 import { ErroreMateriali } from '../lib/ricette'
 import { ErroreRegola } from '../lib/stati'
-import { aggiungiPagamento, cambiaStatoOrdine, creaOrdine, eliminaOrdine, rimuoviPagamento } from './ordini'
+import { aggiungiPagamento, cambiaStatoOrdine, creaOrdine, eliminaOrdine, impostaCostoSpedizione, rimuoviPagamento } from './ordini'
 import { creaArticolo, registraMovimento } from './magazzino'
 
 // Il codice vero di src/data/* gira su un finto Firestore in memoria (src/test-utils/fakeFirestore.ts),
@@ -372,5 +372,40 @@ describe('creaOrdine e movimenti del magazzino (codice vero sul finto database)'
     const id = await creaArticolo({ nome: 'Nastro', tipo: 'materiale', unita: 'm', attivo: true }, 1250)
     expect(leggi(`listino/${id}`)!.giacenza).toBe(1250)
     expect(movimenti(id)[0]).toMatchObject({ tipo: 'carico', delta: 1250, nota: 'Giacenza iniziale' })
+  })
+})
+
+describe('costo di spedizione (codice vero sul finto database)', () => {
+  it('si imposta, si cambia, può essere zero e si toglie del tutto', async () => {
+    ordine()
+    await impostaCostoSpedizione('o1', 590)
+    expect(leggi('ordini/o1')!.costoSpedizioneCent).toBe(590)
+    await impostaCostoSpedizione('o1', 0)
+    expect(leggi('ordini/o1')!.costoSpedizioneCent).toBe(0)
+    await impostaCostoSpedizione('o1', null)
+    expect('costoSpedizioneCent' in leggi('ordini/o1')!).toBe(false)
+  })
+
+  it('un ordine creato con la spedizione la conserva; senza, il campo non esiste', async () => {
+    const base = {
+      clienteId: 'c1',
+      clienteNome: 'Maria',
+      canale: 'WhatsApp' as const,
+      righe: [{ descrizione: 'x', quantita: 1, prezzoUnitarioCent: 100 }],
+      stato: 'in attesa acconto' as const,
+      pagamenti: [],
+    }
+    const con = await creaOrdine({ ...base, costoSpedizioneCent: 590 })
+    const senza = await creaOrdine(base)
+    expect(leggi(`ordini/${con.id}`)!.costoSpedizioneCent).toBe(590)
+    expect('costoSpedizioneCent' in leggi(`ordini/${senza.id}`)!).toBe(false)
+  })
+
+  it('cambiare il costo non tocca stato, pagamenti né materiali', async () => {
+    ordine()
+    await cambiaStatoOrdine('o1', 'in preparazione')
+    await impostaCostoSpedizione('o1', 700)
+    expect(leggi('ordini/o1')).toMatchObject({ stato: 'in preparazione', pagamenti: [pagamento], costoSpedizioneCent: 700 })
+    expect(giacenza('fil')).toBe(4820)
   })
 })

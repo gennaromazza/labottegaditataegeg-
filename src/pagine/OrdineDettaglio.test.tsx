@@ -15,6 +15,7 @@ const h = vi.hoisted(() => ({
   elimina: vi.fn(),
   aggiorna: vi.fn(),
   cambia: vi.fn(),
+  imposta: vi.fn(),
   tutti: [] as Ordine[],
   articoli: [] as unknown[],
 }))
@@ -44,6 +45,7 @@ vi.mock('../data/ordini', () => ({
   },
   aggiornaOrdine: (...a: unknown[]) => h.aggiorna(...a),
   cambiaStatoOrdine: (...a: unknown[]) => h.cambia(...a),
+  impostaCostoSpedizione: (...a: unknown[]) => h.imposta(...a),
   rimuoviPagamento: (...a: unknown[]) => h.rimuovi(...a),
   eliminaOrdine: (...a: unknown[]) => h.elimina(...a),
   aggiungiPagamento: async (_id: string, p: Pagamento) => {
@@ -426,5 +428,109 @@ describe('materiali della ricetta nel dettaglio ordine', () => {
     })
     expect(screen.getByText(/Materiali scalati dal magazzino/)).toBeInTheDocument()
     expect(screen.getByText(/Filamento PLA: 180 g/)).toBeInTheDocument()
+  })
+})
+
+describe('costo di spedizione nel dettaglio ordine', () => {
+  const pagato = [{ importoCent: 500, data: '2026-11-05' }]
+  beforeEach(() => {
+    h.imposta.mockReset()
+    h.imposta.mockResolvedValue(undefined)
+  })
+
+  it('mostra la riga della spedizione e il totale che la comprende', () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato, costoSpedizioneCent: 590 })
+    apri()
+    expect(screen.getByText('Spedizione').closest('.riga')).toHaveTextContent('5,90')
+    expect(screen.getByText(/Totale \(spedizione compresa\)/).closest('.riga')).toHaveTextContent('23,40')
+    expect(screen.getByText('Da saldare').closest('.riga')).toHaveTextContent('18,40')
+  })
+
+  it('spedizione gratuita: la riga dice "gratuita" e il totale non cambia', () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato, costoSpedizioneCent: 0 })
+    apri()
+    expect(screen.getByText('Spedizione').closest('.riga')).toHaveTextContent('gratuita')
+    expect(screen.getByText('Totale').closest('.riga')).toHaveTextContent('17,50')
+  })
+
+  it('senza costo di spedizione (ordini vecchi) non c\'è nessuna riga', () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato })
+    apri()
+    expect(screen.queryByText('Spedizione')).not.toBeInTheDocument()
+    expect(screen.getByText('Totale').closest('.riga')).toHaveTextContent('17,50')
+  })
+
+  it('la sezione del costo è aperta se manca (così si vede) e chiusa se c\'è già', () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato })
+    const { unmount } = apri()
+    expect(screen.getByRole('button', { name: 'Costo di spedizione' })).toHaveAttribute('aria-expanded', 'true')
+    unmount()
+    sessionStorage.clear()
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato, costoSpedizioneCent: 590 })
+    apri()
+    expect(screen.getByRole('button', { name: 'Costo di spedizione' })).toHaveAttribute('aria-expanded', 'false')
+  })
+
+  it('si imposta il costo anche dopo aver creato l\'ordine', async () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato })
+    apri()
+    await userEvent.type(screen.getByLabelText(/Costo di spedizione per il cliente/), '5,90')
+    await userEvent.click(screen.getByRole('button', { name: 'Salva il costo' }))
+    expect(h.imposta).toHaveBeenCalledWith('o1', 590)
+    expect(await screen.findByText('Costo di spedizione salvato')).toBeInTheDocument()
+  })
+
+  it('si può mettere 0 (gratuita)', async () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato })
+    apri()
+    await userEvent.type(screen.getByLabelText(/Costo di spedizione per il cliente/), '0')
+    await userEvent.click(screen.getByRole('button', { name: 'Salva il costo' }))
+    expect(h.imposta).toHaveBeenCalledWith('o1', 0)
+  })
+
+  it('campo vuoto o importo non valido: non salva e spiega', async () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato })
+    apri()
+    await userEvent.click(screen.getByRole('button', { name: 'Salva il costo' }))
+    expect(await screen.findByText(/Scrivi l'importo/)).toBeInTheDocument()
+    await userEvent.type(screen.getByLabelText(/Costo di spedizione per il cliente/), 'abc')
+    await userEvent.click(screen.getByRole('button', { name: 'Salva il costo' }))
+    expect(await screen.findByText(/Importo non valido/)).toBeInTheDocument()
+    expect(h.imposta).not.toHaveBeenCalled()
+  })
+
+  it('"Togli la spedizione" c\'è solo se la riga esiste e la toglie', async () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato })
+    const { unmount } = apri()
+    expect(screen.queryByRole('button', { name: 'Togli la spedizione' })).not.toBeInTheDocument()
+    unmount()
+    sessionStorage.clear()
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato, costoSpedizioneCent: 590 })
+    apri()
+    await userEvent.click(screen.getByRole('button', { name: 'Costo di spedizione' }))
+    expect(screen.getByLabelText(/Costo di spedizione per il cliente/)).toHaveValue('5,90')
+    await userEvent.click(screen.getByRole('button', { name: 'Togli la spedizione' }))
+    expect(h.imposta).toHaveBeenCalledWith('o1', null)
+  })
+
+  it('un errore di salvataggio si vede', async () => {
+    h.imposta.mockImplementation(async () => {
+      throw new Error('offline')
+    })
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato })
+    apri()
+    await userEvent.type(screen.getByLabelText(/Costo di spedizione per il cliente/), '5,90')
+    await userEvent.click(screen.getByRole('button', { name: 'Salva il costo' }))
+    expect(await screen.findByText(/Non sono riuscito a salvare/)).toBeInTheDocument()
+    expect(screen.queryByText('Costo di spedizione salvato')).not.toBeInTheDocument()
+  })
+
+  it('il pulsante WhatsApp usa il messaggio con la spedizione', () => {
+    h.ordine = ordineDiProva({ stato: 'confermato', pagamenti: pagato, costoSpedizioneCent: 590 })
+    apri()
+    const href = screen.getByRole('link', { name: 'Invia su WhatsApp' }).getAttribute('href')!
+    const testo = decodeURIComponent(href.split('?text=')[1])
+    expect(testo).toContain('Spedizione: 5,90')
+    expect(testo).toContain('Totale (spedizione compresa): 23,40')
   })
 })

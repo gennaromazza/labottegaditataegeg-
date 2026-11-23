@@ -1,4 +1,4 @@
-import { formatData, formatEuro, residuoCent, totaleCent, versatoCent } from './calcoli'
+import { formatData, formatEuro, haSpedizione, residuoCent, spedizioneCent, totaleOrdineCent, versatoCent } from './calcoli'
 import type { Ordine, Spedizione } from './tipi'
 
 export function normalizzaTelefono(raw: string, prefisso = '39'): string | null {
@@ -35,8 +35,9 @@ export function messaggioOrdine(o: Ordine): string {
     `Ciao ${o.clienteNome}! Ecco il riepilogo del tuo ordine n. ${o.numero} – La Bottega di Tata e Gegè`,
     '',
     ...righe,
+    ...(haSpedizione(o) ? [spedizioneCent(o) > 0 ? `Spedizione: ${formatEuro(spedizioneCent(o))}` : 'Spedizione gratuita'] : []),
     '',
-    `Totale: ${formatEuro(totaleCent(o.righe))}`,
+    `Totale${spedizioneCent(o) > 0 ? ' (spedizione compresa)' : ''}: ${formatEuro(totaleOrdineCent(o))}`,
     `Versato: ${formatEuro(versatoCent(o))}`,
     rigaResiduo(o),
   ]

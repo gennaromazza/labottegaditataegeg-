@@ -1,5 +1,5 @@
 import { jsPDF } from 'jspdf'
-import { formatData, formatEuro, residuoCent, totaleCent, versatoCent } from './calcoli'
+import { formatData, formatEuro, haSpedizione, residuoCent, spedizioneCent, totaleOrdineCent, versatoCent } from './calcoli'
 import type { Ordine } from './tipi'
 
 /** I font PDF standard conoscono solo Latin-1 e €: emoji e altri simboli si tolgono invece di rompere il file. */
@@ -64,6 +64,16 @@ export async function generaPdfOrdine(o: Ordine, logoDataUrl?: string): Promise<
     y += righeTesto.length * 5 + 2
   }
 
+  if (haSpedizione(o)) {
+    if (y > 270) {
+      doc.addPage()
+      y = 20
+    }
+    doc.text(spedizioneCent(o) > 0 ? 'Spedizione' : 'Spedizione gratuita', margine, y)
+    doc.text(formatEuro(spedizioneCent(o)), larghezza - margine, y, { align: 'right' })
+    y += 7
+  }
+
   if (y > 245) {
     doc.addPage()
     y = 20
@@ -72,7 +82,7 @@ export async function generaPdfOrdine(o: Ordine, logoDataUrl?: string): Promise<
   doc.line(margine, y, larghezza - margine, y)
   y += 7
   const riepilogo: [string, string][] = [
-    ['Totale', formatEuro(totaleCent(o.righe))],
+    [spedizioneCent(o) > 0 ? 'Totale (spedizione compresa)' : 'Totale', formatEuro(totaleOrdineCent(o))],
     ['Versato', formatEuro(versatoCent(o))],
     ['Da saldare', formatEuro(residuoCent(o))],
   ]

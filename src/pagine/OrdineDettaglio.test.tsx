@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import OrdineDettaglio from './OrdineDettaglio'
 import { ordineDiProva } from '../lib/fixture'
+import { ErroreRegola } from '../lib/stati'
 import type { Ordine, Pagamento } from '../lib/tipi'
 
 const h = vi.hoisted(() => ({
@@ -203,6 +204,19 @@ it('con l\'indirizzo del cliente lo mostra', () => {
   } as never
   apri()
   expect(screen.getByText(/Spedizione a: Via Roma 1, 81031 Aversa \(CE\)/)).toBeInTheDocument()
+})
+
+it('se togliere il pagamento viola la regola dell\'acconto, il motivo si vede così com\'è', async () => {
+  h.rimuovi.mockReset()
+  h.rimuovi.mockImplementation(async () => {
+    throw new ErroreRegola('Questo è l\'unico pagamento e l\'ordine è già avanti. Prima cambia lo stato.')
+  })
+  h.ordine = ordineDiProva({ stato: 'in preparazione', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
+  apri()
+  vi.spyOn(window, 'confirm').mockReturnValue(true)
+  await userEvent.click(screen.getByRole('button', { name: 'Rimuovi pagamento 1' }))
+  expect(await screen.findByText(/unico pagamento e l'ordine è già avanti/)).toBeInTheDocument()
+  expect(screen.queryByText(/Non sono riuscito a salvare/)).not.toBeInTheDocument()
 })
 
 it('mostra il link dell\'ordine e lo copia', async () => {

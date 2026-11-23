@@ -29,6 +29,23 @@ export function statoDopoRimozionePagamento(statoAttuale: string, versatoRimasto
   return versatoRimasto <= 0 && statoAttuale === 'confermato' ? 'in attesa acconto' : null
 }
 
+/** Errore di una regola di lavoro (non un guasto): il messaggio si può mostrare così com'è. */
+export class ErroreRegola extends Error {}
+
+/** Togliere l'unico acconto da un ordine già avanti lo lascerebbe senza pagamenti: prima si cambia lo stato. */
+export function rimozionePermessa(statoAttuale: string, versatoRimasto: number): { ok: true } | { ok: false; motivo: string } {
+  if (versatoRimasto > 0) return { ok: true }
+  const stato = normalizzaStato(statoAttuale, versatoRimasto)
+  if (RICHIEDONO_ACCONTO.has(stato) && stato !== 'confermato') {
+    return {
+      ok: false,
+      motivo:
+        'Questo è l\'unico pagamento e l\'ordine è già avanti. Prima cambia lo stato (per esempio "In attesa di acconto" o "Annullato"), poi rimuovi il pagamento.',
+    }
+  }
+  return { ok: true }
+}
+
 export type EsitoCambio = { ok: true } | { ok: false; motivo: string }
 
 export function puoCambiareStato(o: Ordine, nuovo: StatoOrdine): EsitoCambio {

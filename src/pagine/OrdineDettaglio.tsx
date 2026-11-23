@@ -11,7 +11,7 @@ import { generaPdfOrdine } from '../lib/pdf'
 import { linkWhatsApp, testoIndirizzo } from '../lib/whatsapp'
 import { AvanzamentoOrdine } from '../componenti/AvanzamentoOrdine'
 import { BadgeStato } from '../componenti/BadgeStato'
-import { puoCambiareStato } from '../lib/stati'
+import { ErroreRegola, puoCambiareStato } from '../lib/stati'
 import { ETICHETTE_METODO, ETICHETTE_STATO, METODI, STATI, type Cliente, type MetodoPagamento, type Ordine, type Pagamento, type StatoOrdine } from '../lib/tipi'
 
 const ERRORE_SCRITTURA = 'Non sono riuscito a salvare. Controlla la connessione e riprova.'
@@ -102,8 +102,8 @@ export default function OrdineDettaglio() {
     setErroreAzione('')
     try {
       await azione()
-    } catch {
-      setErroreAzione(ERRORE_SCRITTURA)
+    } catch (e) {
+      setErroreAzione(e instanceof ErroreRegola ? e.message : ERRORE_SCRITTURA)
     }
   }
 

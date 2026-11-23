@@ -1,6 +1,6 @@
 import { collection, deleteDoc, doc, onSnapshot, orderBy, query, runTransaction, updateDoc } from 'firebase/firestore'
 import { db } from '../firebase'
-import { normalizzaStato, statoDopoNuovoPagamento, statoDopoRimozionePagamento } from '../lib/stati'
+import { ErroreRegola, normalizzaStato, rimozionePermessa, statoDopoNuovoPagamento, statoDopoRimozionePagamento } from '../lib/stati'
 import type { Ordine, Pagamento } from '../lib/tipi'
 import { oggiISO, senzaUndefined } from './util'
 
@@ -57,6 +57,8 @@ export async function rimuoviPagamento(id: string, pagamento: Pagamento): Promis
     )
     if (posizione < 0) return // già rimosso da un altro utente
     const rimasti = attuali.filter((_, i) => i !== posizione)
+    const permesso = rimozionePermessa(String(snap.data()?.stato ?? ''), somma(rimasti))
+    if (!permesso.ok) throw new ErroreRegola(permesso.motivo)
     const stato = statoDopoRimozionePagamento(String(snap.data()?.stato ?? ''), somma(rimasti))
     tx.update(ref, { pagamenti: rimasti, ...(stato ? { stato } : {}) })
   })

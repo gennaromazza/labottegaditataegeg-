@@ -3,6 +3,7 @@ import {
   normalizzaStato,
   prossimaAzione,
   puoCambiareStato,
+  rimozionePermessa,
   statoDopoNuovoPagamento,
   statoDopoRimozionePagamento,
   statoIniziale,
@@ -59,6 +60,20 @@ describe('stato dopo un pagamento', () => {
   it('se resta del versato, o se l\'ordine è più avanti, lo stato non cambia (si avvisa e basta)', () => {
     expect(statoDopoRimozionePagamento('confermato', 200)).toBeNull()
     expect(statoDopoRimozionePagamento('in preparazione', 0)).toBeNull()
+  })
+})
+
+describe('rimozionePermessa: non si toglie l\'unico acconto di un ordine già avanti', () => {
+  it.each(['in preparazione', 'pronto', 'spedito', 'consegnato', 'in lavorazione'])('%s con versato 0: bloccato', (s) => {
+    const r = rimozionePermessa(s, 0)
+    expect(r.ok).toBe(false)
+    if (!r.ok) expect(r.motivo).toMatch(/cambia lo stato/)
+  })
+  it.each(['in attesa acconto', 'confermato', 'annullato', 'da fare'])('%s: permesso', (s) => {
+    expect(rimozionePermessa(s, 0).ok).toBe(true)
+  })
+  it('se resta del versato si può sempre', () => {
+    expect(rimozionePermessa('spedito', 300).ok).toBe(true)
   })
 })
 

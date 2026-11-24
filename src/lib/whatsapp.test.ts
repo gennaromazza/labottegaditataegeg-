@@ -23,8 +23,7 @@ describe('messaggioOrdine', () => {
     const m = messaggioOrdine(
       ordineDiProva({ dataConsegna: '2026-12-10', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] }),
     )
-    expect(m).toContain('n. 7')
-    expect(m).toContain('Maria Rossi')
+    expect(m).toContain('Ciao Maria Rossi! Ecco il riepilogo del tuo ordine – La Bottega di Tata e Gegè')
     expect(m).toContain('Segnaposto')
     expect(m).toContain('Mario')
     expect(m).toContain('17,50')
@@ -49,10 +48,10 @@ describe('messaggioSpedizione', () => {
   const indirizzo = { destinatario: 'Anna Rossi', indirizzo: 'Via Roma 1', cap: '81031', citta: 'Aversa', provincia: 'CE' }
   const spedito = (extra = {}) => ordineDiProva({ stato: 'spedito', pagamenti: [{ importoCent: 1750, data: '2026-11-05' }], ...extra })
 
-  it('è un messaggio cordiale con nome, numero ordine e prodotti', () => {
+  it('è un messaggio cordiale con nome e prodotti', () => {
     const m = messaggioSpedizione(spedito())
     expect(m).toContain('Ciao Maria Rossi')
-    expect(m).toContain('ordine n. 7')
+    expect(m).toContain('il tuo ordine è stato spedito')
     expect(m).toContain('spedito')
     expect(m).toContain('3 × Segnaposto (Mario)')
     expect(m).toContain('La Bottega di Tata e Gegè')
@@ -105,5 +104,22 @@ describe('linkWhatsApp', () => {
   })
   it('senza telefono = null', () => {
     expect(linkWhatsApp(ordineDiProva({ clienteTelefono: undefined }))).toBeNull()
+  })
+})
+
+describe('il numero d\'ordine non si vede mai al cliente (rivelerebbe quanti ordini avete fatto)', () => {
+  it.each([1, 7, 10, 123])('né nel riepilogo né nell\'avviso di spedizione, con l\'ordine n. %i', (numero) => {
+    const o = ordineDiProva({ numero, stato: 'spedito', corriere: 'GLS', tracking: 'AB1', costoSpedizioneCent: 590, pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
+    for (const testo of [messaggioOrdine(o), messaggioSpedizione(o)]) {
+      expect(testo).not.toMatch(/n\.\s*\d/)
+      expect(testo).not.toMatch(/numero|n°|#\d/i)
+      expect(testo).not.toContain(`ordine ${numero}`)
+    }
+  })
+
+  it('il link WhatsApp, decodificato, non contiene il numero', () => {
+    const o = ordineDiProva({ numero: 10 })
+    const url = linkWhatsApp(o)!
+    expect(decodeURIComponent(url.split('?text=')[1])).not.toMatch(/n\.\s*10|ordine 10/)
   })
 })

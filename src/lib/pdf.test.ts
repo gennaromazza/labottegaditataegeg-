@@ -26,3 +26,13 @@ it('un logo non valido non blocca la generazione', async () => {
   const blob = await generaPdfOrdine(ordineDiProva(), 'data:image/png;base64,AAAA')
   expect(blob.size).toBeGreaterThan(500)
 })
+
+it('il PDF, che va al cliente, non riporta il numero d\'ordine', async () => {
+  for (const numero of [7, 10, 123]) {
+    const blob = await generaPdfOrdine(ordineDiProva({ numero }))
+    const testo = new TextDecoder('latin1').decode(await blob.arrayBuffer())
+    expect(testo).toMatch(/\(Riepilogo ordine\)/)
+    expect(testo).not.toContain(`n. ${numero}`)
+    expect(testo).not.toContain(`ordine ${numero}`)
+  }
+})

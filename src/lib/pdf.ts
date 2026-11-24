@@ -28,7 +28,8 @@ export async function generaPdfOrdine(o: Ordine, logoDataUrl?: string): Promise<
   doc.setFont('helvetica', 'bold').setFontSize(18)
   doc.text('La Bottega di Tata e Gege', margine + 36, y + 6)
   doc.setFont('helvetica', 'normal').setFontSize(11)
-  doc.text(sicuroPerPdf(`Riepilogo ordine n. ${o.numero}`), margine + 36, y + 14)
+  // il PDF va al cliente: niente numero d'ordine, che rivelerebbe quanti ordini avete fatto
+  doc.text('Riepilogo ordine', margine + 36, y + 14)
   y += 34
 
   doc.setFontSize(11)

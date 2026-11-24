@@ -32,7 +32,7 @@ export function messaggioOrdine(o: Ordine): string {
     return `• ${r.quantita} × ${r.descrizione}${testo} – ${formatEuro(r.quantita * r.prezzoUnitarioCent)}`
   })
   const parti = [
-    `Ciao ${o.clienteNome}! Ecco il riepilogo del tuo ordine n. ${o.numero} – La Bottega di Tata e Gegè`,
+    `Ciao ${o.clienteNome}! Ecco il riepilogo del tuo ordine – La Bottega di Tata e Gegè`,
     '',
     ...righe,
     ...(haSpedizione(o) ? [spedizioneCent(o) > 0 ? `Spedizione: ${formatEuro(spedizioneCent(o))}` : 'Spedizione gratuita'] : []),
@@ -58,7 +58,7 @@ export function messaggioSpedizione(o: Ordine, indirizzo?: Spedizione): string {
   })
   const parti = [
     `Ciao ${o.clienteNome}! 🎁`,
-    `Una bella notizia: il tuo ordine n. ${o.numero} è stato spedito! 📦`,
+    'Una bella notizia: il tuo ordine è stato spedito! 📦',
     '',
     ...prodotti,
   ]

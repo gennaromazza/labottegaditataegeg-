@@ -60,13 +60,11 @@ beforeEach(() => {
   h.elimina.mockResolvedValue(undefined)
 })
 
-it('totale spese e totale spedizioni del periodo', () => {
+it('totale spese del periodo', () => {
   apri()
   periodo('2026-11-01', '2026-11-30')
   expect(screen.getByTestId('totale-spese').textContent).toMatch(/25,90/)
-  expect(screen.getByTestId('totale-spedizioni').textContent).toMatch(/5,90/)
-  periodo('2026-11-01', '2026-12-31')
-  expect(screen.getByTestId('totale-spedizioni').textContent).toMatch(/12,90/)
+  expect(screen.queryByTestId('totale-spedizioni')).not.toBeInTheDocument()
 })
 
 it('il filtro per categoria restringe l\'elenco ma non il totale delle spedizioni', async () => {
@@ -75,7 +73,6 @@ it('il filtro per categoria restringe l\'elenco ma non il totale delle spedizion
   await userEvent.selectOptions(screen.getByLabelText('Categoria', { selector: '#spe-cat' }), 'Spedizioni')
   expect(screen.getByText('Corriere GLS')).toBeInTheDocument()
   expect(screen.queryByText('Cera di soia')).not.toBeInTheDocument()
-  expect(screen.getByTestId('totale-spedizioni').textContent).toMatch(/12,90/)
 })
 
 it('registra una nuova spesa', async () => {

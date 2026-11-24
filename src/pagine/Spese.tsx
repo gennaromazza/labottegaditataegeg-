@@ -116,12 +116,8 @@ export default function Spese() {
         <h2 data-testid="totale-spese">{formatEuro(totaleSpese(spese, da, a))}</h2>
       </section>
       <section className="scheda">
-        <div>Spedizioni addebitate ai clienti (ordini del periodo)</div>
+        <div>Importo delle spedizioni (ordini del periodo)</div>
         <h2 data-testid="spedizioni-clienti">{formatEuro(spedizioniAddebitate(ordini, da, a))}</h2>
-      </section>
-      <section className="scheda">
-        <div>di cui spedizioni pagate al corriere (spese)</div>
-        <h2 data-testid="totale-spedizioni">{formatEuro(totaleSpese(spese, da, a, 'Spedizioni'))}</h2>
       </section>
       <section className="scheda"><h2>Per categoria</h2><Barre voci={spesePerCategoria(spese, da, a)} vuoto="Nessuna spesa nel periodo." /></section>
 

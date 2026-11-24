@@ -1,11 +1,12 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { Barre } from '../componenti/Barre'
+import { ascoltaOrdini } from '../data/ordini'
 import { creaSpesa, eliminaSpesa, ascoltaSpese } from '../data/spese'
 import { oggiISO } from '../data/util'
-import { formatData, formatEuro, speseFiltrate, spesePerCategoria, totaleSpese } from '../lib/calcoli'
+import { formatData, formatEuro, speseFiltrate, spedizioniAddebitate, spesePerCategoria, totaleSpese } from '../lib/calcoli'
 import { parseEuro } from '../lib/importi'
-import { CATEGORIE_SPESA, type CategoriaSpesa, type Spesa } from '../lib/tipi'
+import { CATEGORIE_SPESA, type CategoriaSpesa, type Ordine, type Spesa } from '../lib/tipi'
 
 const ERRORE = 'Non sono riuscito a salvare. Controlla la connessione e riprova.'
 
@@ -64,6 +65,8 @@ function FormSpesa({ descrizioneIniziale, categoriaIniziale }: { descrizioneIniz
 export default function Spese() {
   const oggi = oggiISO()
   const [spese, setSpese] = useState<Spesa[]>([])
+  const [ordini, setOrdini] = useState<Ordine[]>([])
+  useEffect(() => ascoltaOrdini(setOrdini), [])
   const [da, setDa] = useState(`${oggi.slice(0, 7)}-01`)
   const [a, setA] = useState(oggi)
   const [categoria, setCategoria] = useState<CategoriaSpesa | ''>('')
@@ -113,7 +116,11 @@ export default function Spese() {
         <h2 data-testid="totale-spese">{formatEuro(totaleSpese(spese, da, a))}</h2>
       </section>
       <section className="scheda">
-        <div>di cui spedizioni</div>
+        <div>Spedizioni addebitate ai clienti (ordini del periodo)</div>
+        <h2 data-testid="spedizioni-clienti">{formatEuro(spedizioniAddebitate(ordini, da, a))}</h2>
+      </section>
+      <section className="scheda">
+        <div>di cui spedizioni pagate al corriere (spese)</div>
         <h2 data-testid="totale-spedizioni">{formatEuro(totaleSpese(spese, da, a, 'Spedizioni'))}</h2>
       </section>
       <section className="scheda"><h2>Per categoria</h2><Barre voci={spesePerCategoria(spese, da, a)} vuoto="Nessuna spesa nel periodo." /></section>

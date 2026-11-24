@@ -95,6 +95,13 @@ export function utileCent(ordini: Ordine[], spese: Spesa[], da: string, a: strin
 }
 
 const euro = new Intl.NumberFormat('it-IT', { style: 'currency', currency: 'EUR' })
+/** Spedizione addebitata ai clienti negli ordini creati nel periodo (esclusi gli annullati). */
+export function spedizioniAddebitate(ordini: Ordine[], da: string, a: string): number {
+  return ordini
+    .filter((o) => o.stato !== 'annullato' && o.creatoIl >= da && o.creatoIl <= a)
+    .reduce((somma, o) => somma + spedizioneCent(o), 0)
+}
+
 export function formatEuro(cent: number): string {
   return euro.format(cent / 100)
 }

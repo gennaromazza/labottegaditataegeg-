@@ -5,6 +5,17 @@ import Spese from './Spese'
 
 const h = vi.hoisted(() => ({ crea: vi.fn(), elimina: vi.fn() }))
 
+vi.mock('../data/ordini', () => ({
+  ascoltaOrdini: (cb: (o: unknown[]) => void) => {
+    cb([
+      { id: 'a', creatoIl: '2026-11-03', stato: 'confermato', righe: [], pagamenti: [], costoSpedizioneCent: 590 },
+      { id: 'b', creatoIl: '2026-11-04', stato: 'annullato', righe: [], pagamenti: [], costoSpedizioneCent: 900 },
+      { id: 'c', creatoIl: '2026-11-05', stato: 'pronto', righe: [], pagamenti: [] },
+      { id: 'd', creatoIl: '2026-10-01', stato: 'pronto', righe: [], pagamenti: [], costoSpedizioneCent: 700 },
+    ])
+    return () => {}
+  },
+}))
 vi.mock('../data/spese', () => ({
   ascoltaSpese: (cb: (s: unknown[]) => void) => {
     cb([
@@ -99,4 +110,12 @@ it('elimina solo dopo la conferma', async () => {
   conferma.mockReturnValueOnce(true)
   await userEvent.click(screen.getByRole('button', { name: 'Elimina spesa Corriere GLS' }))
   expect(h.elimina).toHaveBeenCalledWith('s1')
+})
+
+it('mostra le spedizioni addebitate ai clienti nel periodo, senza gli ordini annullati', () => {
+  apri()
+  periodo('2026-11-01', '2026-11-30')
+  expect(screen.getByTestId('spedizioni-clienti').textContent).toMatch(/5,90/)
+  periodo('2026-10-01', '2026-11-30')
+  expect(screen.getByTestId('spedizioni-clienti').textContent).toMatch(/12,90/)
 })

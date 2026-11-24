@@ -67,6 +67,20 @@ const apri = () =>
     </MemoryRouter>,
   )
 
+it('il pulsante Modifica ordine porta al modulo di modifica', async () => {
+  h.ordine = ordineDiProva()
+  apri()
+  expect(await screen.findByRole('link', { name: 'Modifica ordine' })).toHaveAttribute('href', '/ordini/o1/modifica')
+})
+
+it('un pagamento superiore a quello che resta da pagare non parte e spiega il motivo', async () => {
+  h.ordine = ordineDiProva({ pagamenti: [{ importoCent: 500, data: '2026-11-05' }] }) // totale 17,50, resta 12,50
+  apri()
+  await userEvent.type(screen.getByLabelText('Importo (€)'), '12,51')
+  await userEvent.click(screen.getByRole('button', { name: 'Aggiungi pagamento' }))
+  expect(await screen.findByText(/supera quello che resta da pagare \(12,50/)).toBeInTheDocument()
+})
+
 it('un secondo acconto porta lo stato da acconto a saldato', async () => {
   h.ordine = ordineDiProva({ pagamenti: [{ importoCent: 500, data: '2026-11-05' }] })
   apri()

@@ -6,6 +6,7 @@ import Login from './pagine/Login'
 import Ordini from './pagine/Ordini'
 import OrdineForm from './pagine/OrdineForm'
 import OrdineDettaglio from './pagine/OrdineDettaglio'
+import ModificaOrdine from './pagine/ModificaOrdine'
 import Clienti from './pagine/Clienti'
 import ClienteScheda from './pagine/ClienteScheda'
 import Incassi from './pagine/Incassi'
@@ -25,6 +26,7 @@ export default function App() {
             <Route path="/ordini" element={<Ordini />} />
             <Route path="/ordini/nuovo" element={<OrdineForm />} />
             <Route path="/ordini/:id" element={<OrdineDettaglio />} />
+            <Route path="/ordini/:id/modifica" element={<ModificaOrdine />} />
             <Route path="/clienti" element={<Clienti />} />
             <Route path="/clienti/:id" element={<ClienteScheda />} />
             <Route path="/incassi" element={<Incassi />} />

@@ -9,7 +9,7 @@ const ERRORE_SCRITTURA = 'Non sono riuscito a salvare. Controlla la connessione 
 
 type Extra = Partial<Omit<Ordine, 'id' | 'numero'>>
 
-interface Avviso {
+export interface Avviso {
   nuovo: StatoOrdine
   mancanti: Mancante[]
   problemi: string[]

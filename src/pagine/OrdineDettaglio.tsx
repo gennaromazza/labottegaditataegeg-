@@ -34,7 +34,7 @@ async function caricaLogo(): Promise<string | undefined> {
   }
 }
 
-function FormPagamento({ id }: { id: string }) {
+function FormPagamento({ id, residuo }: { id: string; residuo: number }) {
   const [importo, setImporto] = useState('')
   const [metodo, setMetodo] = useState<MetodoPagamento | ''>('')
   const [data, setData] = useState(oggiISO())
@@ -44,12 +44,13 @@ function FormPagamento({ id }: { id: string }) {
     e.preventDefault()
     const cent = parseEuro(importo)
     if (cent === null || cent <= 0) return setErrore('Scrivi un importo valido')
+    if (cent > Math.max(0, residuo)) return setErrore(`L'importo supera quello che resta da pagare (${formatEuro(Math.max(0, residuo))}).`)
     setErrore('')
     try {
       await aggiungiPagamento(id, { importoCent: cent, data: data || oggiISO(), ...(metodo ? { metodo } : {}) })
       setImporto('')
-    } catch {
-      setErrore(ERRORE_SCRITTURA)
+    } catch (err) {
+      setErrore(err instanceof ErroreRegola ? err.message : ERRORE_SCRITTURA)
     }
   }
 
@@ -264,6 +265,7 @@ export default function OrdineDettaglio() {
             <small>Aggiungi il telefono del cliente</small>
           </>
         )}
+        <Link to={`/ordini/${ordine.id}/modifica`} className="bottone secondario-link">Modifica ordine</Link>
         <button type="button" className="secondario" onClick={() => void scaricaPdf(vivo)}>Scarica PDF</button>
         <button type="button" className="secondario" onClick={() => window.print()}>Stampa</button>
       </div>
@@ -292,7 +294,7 @@ export default function OrdineDettaglio() {
             </span>
           </div>
         ))}
-        <FormPagamento id={ordine.id} />
+        <FormPagamento id={ordine.id} residuo={residuo} />
       </Sezione>
 
       <div className="no-stampa">

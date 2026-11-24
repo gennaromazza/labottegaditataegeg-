@@ -1,9 +1,10 @@
 import { collection, deleteField, doc, onSnapshot, orderBy, query, runTransaction, updateDoc, type Transaction } from 'firebase/firestore'
 import { db } from '../firebase'
-import { ErroreMateriali, deveRipristinare, fabbisogno, pianoScarico, vociDaRipristinare, verificaDisponibilita } from '../lib/ricette'
+import { ErroreMateriali, deveRipristinare, fabbisogno, pianoModifica, pianoScarico, righeCambiate, vociDaRipristinare, verificaDisponibilita } from '../lib/ricette'
+import { formatEuro, totaleOrdineCent } from '../lib/calcoli'
 import { formatQuantitaComoda } from '../lib/unita'
 import { ErroreRegola, normalizzaStato, rimozionePermessa, statoDopoNuovoPagamento, statoDopoRimozionePagamento } from '../lib/stati'
-import type { Articolo, Ordine, Pagamento, ScaricoMagazzino, StatoOrdine } from '../lib/tipi'
+import type { Articolo, Canale, Ordine, Pagamento, Riga, ScaricoMagazzino, StatoOrdine } from '../lib/tipi'
 import { leggiArticoli, scriviMovimento } from './magazzino'
 import { oggiISO, senzaUndefined } from './util'
 
@@ -99,6 +100,70 @@ export async function cambiaStatoOrdine(
   })
 }
 
+export interface DatiModifica {
+  clienteId: string
+  clienteNome: string
+  clienteTelefono?: string
+  canale: Canale
+  righe: Riga[]
+  dataConsegna?: string
+  note?: string
+  costoSpedizioneCent?: number
+}
+
+/**
+ * Modifica un ordine già creato (non cambiano numero, stato, pagamenti, note di preparazione).
+ * I campi facoltativi lasciati vuoti vengono tolti dall'ordine.
+ * Se i materiali erano già stati scalati e cambiano prodotti o quantità (prima della spedizione), il magazzino
+ * si ricalcola con la differenza, nella stessa transazione; se non bastano lancia ErroreMateriali
+ * a meno che `procediComunque`. Dopo la spedizione il magazzino non si tocca (la merce è partita).
+ */
+export async function modificaOrdine(id: string, dati: DatiModifica, opzioni: { procediComunque?: boolean } = {}): Promise<void> {
+  const ref = doc(db, 'ordini', id)
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref)
+    if (!snap.exists()) throw new ErroreRegola('Ordine non trovato: forse è stato eliminato.')
+    const ordine = daDoc(snap.id, snap.data())
+
+    const patch: Record<string, unknown> = {
+      clienteId: dati.clienteId,
+      clienteNome: dati.clienteNome,
+      canale: dati.canale,
+      righe: senzaUndefined(dati.righe),
+      clienteTelefono: dati.clienteTelefono ? dati.clienteTelefono : deleteField(),
+      dataConsegna: dati.dataConsegna ? dati.dataConsegna : deleteField(),
+      note: dati.note ? dati.note : deleteField(),
+      costoSpedizioneCent: dati.costoSpedizioneCent !== undefined ? dati.costoSpedizioneCent : deleteField(),
+    }
+
+    const nuovoTotale = totaleOrdineCent({ ...ordine, righe: dati.righe, costoSpedizioneCent: dati.costoSpedizioneCent })
+    const versato = somma(ordine.pagamenti)
+    if (versato > nuovoTotale) {
+      throw new ErroreRegola(`Hai già incassato ${formatEuro(versato)}: il totale dell'ordine non può scendere sotto questa cifra. Togli prima un pagamento.`)
+    }
+
+    const partito = ordine.stato === 'spedito' || ordine.stato === 'consegnato'
+    if (ordine.scaricoMagazzino && !partito && righeCambiate(ordine.righe, dati.righe)) {
+      const prodotti = await leggiArticoli(tx, dati.righe.flatMap((r) => (r.articoloId ? [r.articoloId] : [])))
+      const materiali = await leggiArticoli(tx, [
+        ...[...prodotti.values()].flatMap((p) => p.ricetta?.map((i) => i.articoloId) ?? []),
+        ...ordine.scaricoMagazzino.voci.map((v) => v.articoloId),
+      ])
+      const tutti = [...prodotti.values(), ...materiali.values()]
+      const piano = pianoModifica(ordine.scaricoMagazzino, fabbisogno(dati.righe, tutti).voci, tutti, Boolean(opzioni.procediComunque))
+      if (!piano.ok) throw new ErroreMateriali(piano.mancanti)
+      for (const v of piano.variazioni) {
+        const m = materiali.get(v.articoloId)
+        if (!m) continue
+        scriviMovimento(tx, m, v.variazione > 0 ? 'carico' : 'scarico', v.variazione, m.giacenza + v.variazione, `Ordine n. ${ordine.numero} modificato`)
+      }
+      patch.scaricoMagazzino = piano.voci.length > 0 ? { data: ordine.scaricoMagazzino.data, voci: piano.voci } : deleteField()
+    }
+
+    tx.update(ref, patch)
+  })
+}
+
 /** Imposta il costo di spedizione che il cliente paga (0 = gratuita); `null` toglie la riga di spedizione dall'ordine. */
 export async function impostaCostoSpedizione(id: string, cent: number | null): Promise<void> {
   await updateDoc(doc(db, 'ordini', id), { costoSpedizioneCent: cent === null ? deleteField() : cent })
@@ -111,6 +176,12 @@ export async function aggiungiPagamento(id: string, p: Pagamento): Promise<void>
     const snap = await tx.get(ref)
     const attuali = (snap.data()?.pagamenti as Pagamento[] | undefined) ?? []
     const nuovi = [...attuali, senzaUndefined(p)]
+    // un pagamento non può far superare l'importo dell'ordine
+    const totale = totaleOrdineCent(daDoc(snap.id, snap.data() ?? {}))
+    if (somma(nuovi) > totale) {
+      const residuo = Math.max(0, totale - somma(attuali))
+      throw new ErroreRegola(`L'importo supera quello che resta da pagare (${formatEuro(residuo)}).`)
+    }
     // il primo acconto conferma l'ordine che stava aspettando
     const stato = statoDopoNuovoPagamento(String(snap.data()?.stato ?? ''), somma(nuovi))
     tx.update(ref, { pagamenti: nuovi, ...(stato ? { stato } : {}) })

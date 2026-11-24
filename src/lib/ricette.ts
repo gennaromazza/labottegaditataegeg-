@@ -109,3 +109,63 @@ export class ErroreMateriali extends ErroreRegola {
     this.mancanti = mancanti
   }
 }
+
+/** Le righe sono cambiate in modo che conti per il magazzino? (conta solo quale prodotto e quanti pezzi: prezzo e testo no). */
+export function righeCambiate(prima: Riga[], dopo: Riga[]): boolean {
+  const somma = (righe: Riga[]) => {
+    const m = new Map<string, number>()
+    for (const r of righe) if (r.articoloId) m.set(r.articoloId, (m.get(r.articoloId) ?? 0) + r.quantita)
+    return m
+  }
+  const a = somma(prima)
+  const b = somma(dopo)
+  if (a.size !== b.size) return true
+  for (const [id, q] of a) if (b.get(id) !== q) return true
+  return false
+}
+
+export interface PianoModifica {
+  ok: boolean
+  /** Materiali che non bastano per le nuove righe (se `ok` è falso l'ordine non si salva finché non si sceglie di procedere). */
+  mancanti: Mancante[]
+  /** Quanto cambia la giacenza di ogni materiale: positivo = torna in magazzino, negativo = si scala. */
+  variazioni: { articoloId: string; variazione: number }[]
+  /** Il nuovo registro di cosa è scalato per l'ordine. */
+  voci: VoceScarico[]
+}
+
+/**
+ * Un ordine che aveva già scalato dei materiali cambia prodotti o quantità: calcola la differenza.
+ * Per ogni materiale: disponibile = giacenza di oggi + quanto era già scalato per questo ordine;
+ * si scala quanto serve ora, ma mai più di quello che c'è. Il resto tornerà (o verrà preso) in magazzino.
+ */
+export function pianoModifica(
+  scarico: ScaricoMagazzino | undefined,
+  nuovo: Necessita[],
+  articoli: Articolo[],
+  procediComunque: boolean,
+): PianoModifica {
+  const ids = [...new Set([...(scarico?.voci.map((v) => v.articoloId) ?? []), ...nuovo.map((n) => n.articoloId)])]
+  const mancanti: Mancante[] = []
+  const variazioni: PianoModifica['variazioni'] = []
+  const voci: VoceScarico[] = []
+
+  for (const id of ids) {
+    const vecchio = scarico?.voci.find((v) => v.articoloId === id)
+    const serve = nuovo.find((n) => n.articoloId === id)
+    const materiale = articoli.find((a) => a.id === id)
+    if (!materiale) continue // il materiale non esiste più: niente da scrivere
+    const giaScalata = vecchio?.scalata ?? 0
+    const necessaria = serve?.necessaria ?? 0
+    const disponibile = materiale.giacenza + giaScalata
+    const scalata = Math.min(necessaria, disponibile)
+    const nome = serve?.nome ?? vecchio?.nome ?? materiale.nome
+    const unita = serve?.unita ?? vecchio?.unita ?? materiale.unita
+    if (necessaria > disponibile) mancanti.push({ articoloId: id, nome, unita, necessaria, disponibile, mancante: necessaria - disponibile })
+    if (necessaria > 0 || scalata > 0) voci.push({ articoloId: id, nome, unita, necessaria, scalata })
+    if (giaScalata !== scalata) variazioni.push({ articoloId: id, variazione: giaScalata - scalata })
+  }
+
+  if (mancanti.length > 0 && !procediComunque) return { ok: false, mancanti, variazioni: [], voci: [] }
+  return { ok: true, mancanti, variazioni, voci }
+}

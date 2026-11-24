@@ -42,6 +42,15 @@ Solo gli account email/password creati da noi, e solo le email elencate in `fire
 - Si può impostare, cambiare o togliere anche dopo, nel dettaglio ordine (sezione *Costo di spedizione*).
 - Non va confuso con la categoria *Spedizioni* nelle Spese, che è quanto spendete voi con il corriere (serve per l'utile).
 
+## Pagamenti e acconti
+- Un acconto o un pagamento non può mai superare il totale dell'ordine (spedizione compresa): il modulo lo blocca con il residuo e anche `aggiungiPagamento` lo rifiuta dentro la transazione.
+- Modificando un ordine, il totale non può scendere sotto quanto è già stato incassato.
+
+## Modificare un ordine
+- Nella pagina dell'ordine, **Modifica ordine** riapre il modulo già compilato (cliente, canale, prodotti, spedizione, consegna, note). Pagamenti, stato e numero non cambiano da lì.
+- Se i materiali erano già stati scalati (ordine "in preparazione" o oltre) e cambi prodotti o quantità, il magazzino si aggiorna solo con la differenza (`pianoModifica` in `src/lib/ricette.ts`, `modificaOrdine` in `src/data/ordini.ts`), con una nota nello storico. Se manca materiale compare l'avviso con **Procedi comunque**.
+- Se l'ordine è già spedito o consegnato, il magazzino non viene toccato.
+
 ## Ricette e scarico automatico del magazzino
 
 Design: `docs/superpowers/specs/2026-11-23-ricette-design.md`.

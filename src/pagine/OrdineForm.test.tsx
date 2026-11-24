@@ -3,8 +3,9 @@ import userEvent from '@testing-library/user-event'
 import { MemoryRouter } from 'react-router-dom'
 import OrdineForm from './OrdineForm'
 import { ordineDiProva } from '../lib/fixture'
+import { ErroreMateriali } from '../lib/ricette'
 
-const h = vi.hoisted(() => ({ crea: vi.fn() }))
+const h = vi.hoisted(() => ({ crea: vi.fn(), modifica: vi.fn() }))
 
 vi.mock('../data/clienti', () => ({
   ascoltaClienti: (cb: (c: unknown[]) => void) => {
@@ -32,6 +33,7 @@ vi.mock('../data/magazzino', () => ({
 }))
 vi.mock('../data/ordini', () => ({
   creaOrdine: (...a: unknown[]) => h.crea(...a),
+  modificaOrdine: (...a: unknown[]) => h.modifica(...a),
   ascoltaOrdini: (cb: (o: unknown[]) => void) => {
     cb([
       ordineDiProva({ id: 'a', numero: 1, stato: 'pronto' }),
@@ -44,6 +46,8 @@ vi.mock('../data/ordini', () => ({
 beforeEach(() => {
   h.crea.mockReset()
   h.crea.mockResolvedValue({ id: 'nuovo' })
+  h.modifica.mockReset()
+  h.modifica.mockResolvedValue(undefined)
 })
 
 const apri = () =>
@@ -305,5 +309,109 @@ describe('costo di spedizione nel modulo ordine', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Salva ordine' }))
     expect(h.crea.mock.calls[0][0].stato).toBe('confermato')
     expect(h.crea.mock.calls[0][0].pagamenti).toEqual([{ importoCent: 1000, data: expect.any(String) }])
+  })
+})
+
+describe('modifica di un ordine esistente', () => {
+  const apriModifica = (extra = {}) =>
+    render(
+      <MemoryRouter>
+        <OrdineForm iniziale={ordineDiProva({ costoSpedizioneCent: 590, dataConsegna: '2026-12-20', note: 'Nota vecchia', ...extra })} />
+      </MemoryRouter>,
+    )
+
+  it('si apre già compilato, senza acconto e con il titolo giusto', () => {
+    apriModifica()
+    expect(screen.getByRole('heading', { name: 'Modifica ordine n. 7' })).toBeInTheDocument()
+    expect(screen.getByText(/Maria Rossi · 333 123-4567/)).toBeInTheDocument()
+    expect(screen.getByLabelText('Prodotto 1')).toHaveValue('Segnaposto')
+    expect(screen.getByLabelText('Testo personalizzato 1')).toHaveValue('Mario')
+    expect(screen.getByLabelText('Quantità 1')).toHaveValue('3')
+    expect(screen.getByLabelText(/Costo di spedizione/)).toHaveValue('5,90')
+    expect(screen.getByLabelText('Note')).toHaveValue('Nota vecchia')
+    expect(screen.queryByLabelText(/Acconto ricevuto/)).not.toBeInTheDocument()
+    expect(screen.getByTestId('totale').textContent).toMatch(/23,40/)
+  })
+
+  it('salva con modificaOrdine (non crea un ordine nuovo) e passa i dati cambiati', async () => {
+    apriModifica()
+    await userEvent.clear(screen.getByLabelText('Quantità 1'))
+    await userEvent.type(screen.getByLabelText('Quantità 1'), '4')
+    await userEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }))
+    expect(h.crea).not.toHaveBeenCalled()
+    expect(h.modifica).toHaveBeenCalledTimes(1)
+    const [id, dati, opz] = h.modifica.mock.calls[0]
+    expect(id).toBe('o1')
+    expect(dati.righe[0]).toMatchObject({ descrizione: 'Segnaposto', quantita: 4, prezzoUnitarioCent: 250 })
+    expect(dati.costoSpedizioneCent).toBe(590)
+    expect(dati.dataConsegna).toBe('2026-12-20')
+    expect(opz).toEqual({ procediComunque: false })
+  })
+
+  it('svuotando spedizione, consegna e note, non li passa più', async () => {
+    apriModifica()
+    await userEvent.clear(screen.getByLabelText(/Costo di spedizione/))
+    await userEvent.clear(screen.getByLabelText('Note'))
+    await userEvent.clear(screen.getByLabelText('Data di consegna'))
+    await userEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }))
+    const dati = h.modifica.mock.calls[0][1]
+    expect('costoSpedizioneCent' in dati).toBe(false)
+    expect('note' in dati).toBe(false)
+    expect('dataConsegna' in dati).toBe(false)
+  })
+
+  it('mantiene il collegamento al prodotto del magazzino delle righe', async () => {
+    apriModifica({ righe: [{ articoloId: 'l1', descrizione: 'Candela grande', quantita: 1, prezzoUnitarioCent: 800 }] })
+    await userEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }))
+    expect(h.modifica.mock.calls[0][1].righe).toEqual([{ articoloId: 'l1', descrizione: 'Candela grande', quantita: 1, prezzoUnitarioCent: 800 }])
+  })
+
+  it('senza righe valide non salva', async () => {
+    apriModifica()
+    await userEvent.clear(screen.getByLabelText('Prodotto 1'))
+    await userEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }))
+    expect(await screen.findByText(/almeno un prodotto/)).toBeInTheDocument()
+    expect(h.modifica).not.toHaveBeenCalled()
+  })
+
+  it('se mancano materiali avvisa; "Procedi comunque" salva con procediComunque', async () => {
+    h.modifica.mockRejectedValueOnce(new ErroreMateriali([{ articoloId: 'l4', nome: 'Cera di soia', unita: 'kg', necessaria: 600, disponibile: 300, mancante: 300 }]))
+    apriModifica({ scaricoMagazzino: { data: '2026-11-02', voci: [] }, stato: 'in preparazione' })
+    await userEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }))
+    expect(await screen.findByRole('alertdialog', { name: 'Materiali che mancano' })).toBeInTheDocument()
+    await userEvent.click(screen.getByRole('button', { name: 'Procedi comunque' }))
+    expect(h.modifica).toHaveBeenCalledTimes(2)
+    expect(h.modifica.mock.calls[1][2]).toEqual({ procediComunque: true })
+  })
+
+  it("«Ferma» chiude l'avviso e non salva di nuovo", async () => {
+    h.modifica.mockRejectedValueOnce(new ErroreMateriali([{ articoloId: 'l4', nome: 'Cera di soia', unita: 'kg', necessaria: 600, disponibile: 300, mancante: 300 }]))
+    apriModifica({ scaricoMagazzino: { data: '2026-11-02', voci: [] }, stato: 'in preparazione' })
+    await userEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }))
+    await userEvent.click(await screen.findByRole('button', { name: /Ferma/ }))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(h.modifica).toHaveBeenCalledTimes(1)
+  })
+
+  it('un errore di scrittura si legge e il pulsante si riattiva', async () => {
+    h.modifica.mockRejectedValueOnce(new Error('rete'))
+    apriModifica()
+    await userEvent.click(screen.getByRole('button', { name: 'Salva modifiche' }))
+    expect(await screen.findByText(/Non sono riuscito a salvare/)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Salva modifiche' })).toBeEnabled()
+  })
+
+  it("avvisa quando i materiali sono già scalati o l'ordine è già partito", () => {
+    const { unmount } = apriModifica({ scaricoMagazzino: { data: '2026-11-02', voci: [] }, stato: 'in preparazione' })
+    expect(screen.getByText(/già stati scalati/)).toBeInTheDocument()
+    unmount()
+    apriModifica({ stato: 'spedito' })
+    expect(screen.getByText(/già partito/)).toBeInTheDocument()
+  })
+
+  it("il percorso e Annulla riportano all'ordine", () => {
+    apriModifica()
+    expect(screen.getByRole('link', { name: 'n. 7' })).toHaveAttribute('href', '/ordini/o1')
+    expect(screen.getByRole('link', { name: 'Annulla' })).toHaveAttribute('href', '/ordini/o1')
   })
 })

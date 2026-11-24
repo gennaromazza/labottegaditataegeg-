@@ -1,7 +1,7 @@
 import { azzera, elenco, inserisci, leggi } from '../test-utils/fakeFirestore'
 import { ErroreMateriali } from '../lib/ricette'
 import { ErroreRegola } from '../lib/stati'
-import { aggiungiPagamento, cambiaStatoOrdine, creaOrdine, eliminaOrdine, impostaCostoSpedizione, rimuoviPagamento } from './ordini'
+import { aggiungiPagamento, cambiaStatoOrdine, creaOrdine, eliminaOrdine, impostaCostoSpedizione, modificaOrdine, rimuoviPagamento, type DatiModifica } from './ordini'
 import { creaArticolo, registraMovimento } from './magazzino'
 
 // Il codice vero di src/data/* gira su un finto Firestore in memoria (src/test-utils/fakeFirestore.ts),
@@ -260,6 +260,35 @@ describe('cambiaStatoOrdine: restituzione dei materiali', () => {
   })
 })
 
+describe("i pagamenti non superano mai il totale dell'ordine", () => {
+  it('un pagamento che supera il residuo viene rifiutato e non si scrive nulla', async () => {
+    ordine({ pagamenti: [{ importoCent: 2000, data: '2026-11-02' }] }) // totale 25,00 €
+    await expect(aggiungiPagamento('o1', { importoCent: 600, data: '2026-11-03' })).rejects.toThrow(/supera quello che resta da pagare \(5,00/)
+    expect(leggi('ordini/o1')!.pagamenti).toHaveLength(1)
+  })
+
+  it('il saldo esatto è permesso', async () => {
+    ordine({ pagamenti: [{ importoCent: 2000, data: '2026-11-02' }] })
+    await aggiungiPagamento('o1', { importoCent: 500, data: '2026-11-03' })
+    expect(leggi('ordini/o1')!.pagamenti).toHaveLength(2)
+  })
+
+  it('il totale comprende la spedizione', async () => {
+    ordine({ costoSpedizioneCent: 590, pagamenti: [{ importoCent: 2500, data: '2026-11-02' }] })
+    await aggiungiPagamento('o1', { importoCent: 590, data: '2026-11-03' })
+    await expect(aggiungiPagamento('o1', { importoCent: 1, data: '2026-11-04' })).rejects.toThrow(/0,00/)
+  })
+
+  it("modificando l'ordine il totale non può scendere sotto quanto già incassato", async () => {
+    ordine({ pagamenti: [{ importoCent: 2000, data: '2026-11-02' }] })
+    await expect(
+      modificaOrdine('o1', { clienteId: 'c1', clienteNome: 'Maria Rossi', canale: 'WhatsApp', righe: [{ descrizione: 'Poco', quantita: 1, prezzoUnitarioCent: 1000 }] }),
+    ).rejects.toThrow(/già incassato 20,00/)
+    expect(leggi('ordini/o1')!.righe).toHaveLength(1)
+    expect((leggi('ordini/o1')!.righe as { descrizione: string }[])[0].descrizione).toBe('Segnaposto 3D')
+  })
+})
+
 describe('pagamenti e stato automatico, con i materiali', () => {
   it('il primo acconto conferma l\'ordine in attesa', async () => {
     ordine({ stato: 'in attesa acconto', pagamenti: [] })
@@ -407,5 +436,200 @@ describe('costo di spedizione (codice vero sul finto database)', () => {
     await impostaCostoSpedizione('o1', 700)
     expect(leggi('ordini/o1')).toMatchObject({ stato: 'in preparazione', pagamenti: [pagamento], costoSpedizioneCent: 700 })
     expect(giacenza('fil')).toBe(4820)
+  })
+})
+
+describe('modificaOrdine (codice vero sul finto database)', () => {
+  const dati = (extra: Partial<DatiModifica> = {}): DatiModifica => ({
+    clienteId: 'c1',
+    clienteNome: 'Maria Rossi',
+    canale: 'WhatsApp',
+    righe: [{ articoloId: 'seg', descrizione: 'Segnaposto 3D', quantita: 10, prezzoUnitarioCent: 250 }],
+    ...extra,
+  })
+  const righe = (quantita: number, extra: Record<string, unknown> = {}) => [
+    { articoloId: 'seg', descrizione: 'Segnaposto 3D', quantita, prezzoUnitarioCent: 250, ...extra },
+  ]
+
+  describe('ordine non ancora in preparazione', () => {
+    it('cambia cliente, canale, righe, consegna, note e spedizione; non tocca numero, stato, pagamenti', async () => {
+      ordine({ dataConsegna: '2026-12-01', note: 'vecchia nota' })
+      await modificaOrdine(
+        'o1',
+        dati({
+          clienteId: 'c9',
+          clienteNome: 'Luca Bianchi',
+          clienteTelefono: '333 9999999',
+          canale: 'TikTok',
+          righe: [{ descrizione: 'Candela', quantita: 2, prezzoUnitarioCent: 800 }],
+          dataConsegna: '2026-12-24',
+          note: 'nuova nota',
+          costoSpedizioneCent: 590,
+        }),
+      )
+      expect(leggi('ordini/o1')).toMatchObject({
+        numero: 7,
+        stato: 'confermato',
+        pagamenti: [pagamento],
+        creatoIl: '2026-11-01',
+        clienteId: 'c9',
+        clienteNome: 'Luca Bianchi',
+        clienteTelefono: '333 9999999',
+        canale: 'TikTok',
+        righe: [{ descrizione: 'Candela', quantita: 2, prezzoUnitarioCent: 800 }],
+        dataConsegna: '2026-12-24',
+        note: 'nuova nota',
+        costoSpedizioneCent: 590,
+      })
+    })
+
+    it('i campi facoltativi lasciati vuoti vengono tolti', async () => {
+      ordine({ dataConsegna: '2026-12-01', note: 'x', costoSpedizioneCent: 590, clienteTelefono: '333 1' })
+      await modificaOrdine('o1', dati())
+      const o = leggi('ordini/o1')!
+      for (const campo of ['dataConsegna', 'note', 'costoSpedizioneCent', 'clienteTelefono']) expect(campo in o).toBe(false)
+    })
+
+    it('la spedizione a 0 (gratuita) resta 0, non sparisce', async () => {
+      ordine()
+      await modificaOrdine('o1', dati({ costoSpedizioneCent: 0 }))
+      expect(leggi('ordini/o1')!.costoSpedizioneCent).toBe(0)
+    })
+
+    it('il magazzino non viene toccato (i materiali si scalano più avanti, alla preparazione)', async () => {
+      ordine()
+      await modificaOrdine('o1', dati({ righe: righe(50) }))
+      expect(giacenza('fil')).toBe(5000)
+      expect(elenco('movimenti')).toHaveLength(0)
+    })
+
+    it('poi, alla preparazione, si scala in base alle righe nuove', async () => {
+      ordine()
+      await modificaOrdine('o1', dati({ righe: righe(20) }))
+      await cambiaStatoOrdine('o1', 'in preparazione')
+      expect(giacenza('fil')).toBe(5000 - 360)
+    })
+
+    it('un ordine che non esiste dà un errore chiaro', async () => {
+      await expect(modificaOrdine('nessuno', dati())).rejects.toBeInstanceOf(ErroreRegola)
+    })
+  })
+
+  describe('ordine con i materiali già scalati', () => {
+    beforeEach(async () => {
+      ordine()
+      await cambiaStatoOrdine('o1', 'in preparazione') // 10 pezzi: 180 g e 10 anelli
+    })
+
+    it('più pezzi: 10 → 20 scala la differenza (altri 180 g e 10 anelli) e aggiorna il registro', async () => {
+      await modificaOrdine('o1', dati({ righe: righe(20) }))
+      expect(giacenza('fil')).toBe(5000 - 360)
+      expect(giacenza('ane')).toBe(80)
+      const o = leggi('ordini/o1')!
+      expect(o.scaricoMagazzino).toMatchObject({
+        voci: expect.arrayContaining([
+          { articoloId: 'fil', nome: 'Filamento PLA', unita: 'kg', necessaria: 360, scalata: 360 },
+          { articoloId: 'ane', nome: 'Anello', unita: 'pezzi', necessaria: 20, scalata: 20 },
+        ]),
+      })
+      expect(o.stato).toBe('in preparazione')
+    })
+
+    it('lo storico del magazzino riporta la differenza, con una nota chiara', async () => {
+      await modificaOrdine('o1', dati({ righe: righe(20) }))
+      const m = movimenti('fil').filter((x) => String(x.nota).includes('modificato'))
+      expect(m).toHaveLength(1)
+      expect(m[0]).toMatchObject({ tipo: 'scarico', delta: -180, giacenzaDopo: 4640, nota: 'Ordine n. 7 modificato' })
+    })
+
+    it('meno pezzi: 10 → 4 restituisce la differenza (108 g e 6 anelli)', async () => {
+      await modificaOrdine('o1', dati({ righe: righe(4) }))
+      expect(giacenza('fil')).toBe(5000 - 72)
+      expect(giacenza('ane')).toBe(96)
+      expect(movimenti('fil').find((x) => x.tipo === 'carico')).toMatchObject({ delta: 108, nota: 'Ordine n. 7 modificato' })
+    })
+
+    it('se cambia solo il prezzo, il testo o una nota, il magazzino non si tocca nemmeno se nel frattempo è cambiata la ricetta', async () => {
+      inserisci('listino/seg', { ...leggi('listino/seg')!, ricetta: [{ articoloId: 'fil', quantita: 99 }] }) // ricetta cambiata dopo lo scarico
+      const prima = { fil: giacenza('fil'), ane: giacenza('ane'), mov: elenco('movimenti').length }
+      await modificaOrdine('o1', dati({ righe: righe(10, { prezzoUnitarioCent: 300, testoPersonalizzato: 'Mario' }), note: 'solo una nota' }))
+      expect({ fil: giacenza('fil'), ane: giacenza('ane'), mov: elenco('movimenti').length }).toEqual(prima)
+      expect(leggi('ordini/o1')!.note).toBe('solo una nota')
+    })
+
+    it('si sostituisce il prodotto con uno senza ricetta: tutto torna in magazzino e il registro sparisce', async () => {
+      await modificaOrdine('o1', dati({ righe: [{ articoloId: 'sem', descrizione: 'Rivendita', quantita: 2, prezzoUnitarioCent: 300 }] }))
+      expect(giacenza('fil')).toBe(5000)
+      expect(giacenza('ane')).toBe(100)
+      expect('scaricoMagazzino' in leggi('ordini/o1')!).toBe(false)
+    })
+
+    it('una riga scritta a mano al posto del prodotto: i materiali tornano', async () => {
+      await modificaOrdine('o1', dati({ righe: [{ descrizione: 'Segnaposto a mano', quantita: 10, prezzoUnitarioCent: 250 }] }))
+      expect(giacenza('fil')).toBe(5000)
+      expect('scaricoMagazzino' in leggi('ordini/o1')!).toBe(false)
+    })
+
+    it('una riga in più di un altro prodotto con ricetta aggiunge i suoi materiali', async () => {
+      inserisci('listino/cer', { nome: 'Cera', tipo: 'materiale', unita: 'kg', giacenza: 5000, attivo: true })
+      inserisci('listino/can', { nome: 'Candela', tipo: 'prodotto', unita: 'pezzi', giacenza: 0, prezzoCent: 800, attivo: true, ricetta: [{ articoloId: 'cer', quantita: 200 }] })
+      await modificaOrdine('o1', dati({ righe: [...righe(10), { articoloId: 'can', descrizione: 'Candela', quantita: 3, prezzoUnitarioCent: 800 }] }))
+      expect(giacenza('cer')).toBe(5000 - 600)
+      expect(giacenza('fil')).toBe(4820) // invariati i segnaposto
+    })
+
+    describe('se i materiali non bastano', () => {
+      beforeEach(() => {
+        inserisci('listino/fil', { ...leggi('listino/fil')!, giacenza: 100 }) // restano 100 g; con i 180 già scalati ce ne sono 280 per questo ordine
+      })
+
+      it('senza "procedi comunque" lancia ErroreMateriali e non cambia NULLA', async () => {
+        const errore = await modificaOrdine('o1', dati({ righe: righe(23), note: 'non deve passare' })).catch((e: unknown) => e)
+        expect(errore).toBeInstanceOf(ErroreMateriali)
+        expect((errore as ErroreMateriali).mancanti[0]).toMatchObject({ articoloId: 'fil', necessaria: 414, disponibile: 280, mancante: 134 })
+        expect(giacenza('fil')).toBe(100)
+        const o = leggi('ordini/o1')!
+        expect((o.righe as { quantita: number }[])[0].quantita).toBe(10)
+        expect('note' in o).toBe(false)
+      })
+
+      it('con "procedi comunque" scala quanto c\'è: la giacenza va a zero, mai sotto', async () => {
+        await modificaOrdine('o1', dati({ righe: righe(23) }), { procediComunque: true })
+        expect(giacenza('fil')).toBe(0)
+        const voce = (leggi('ordini/o1')!.scaricoMagazzino as { voci: { articoloId: string; necessaria: number; scalata: number }[] }).voci.find((v) => v.articoloId === 'fil')!
+        expect(voce).toMatchObject({ necessaria: 414, scalata: 280 })
+      })
+    })
+
+    it('dopo la modifica, se l\'ordine viene annullato, torna esattamente quanto era stato scalato in tutto', async () => {
+      await modificaOrdine('o1', dati({ righe: righe(20) }))
+      await cambiaStatoOrdine('o1', 'annullato')
+      expect(giacenza('fil')).toBe(5000)
+      expect(giacenza('ane')).toBe(100)
+    })
+
+    it('modifiche in sequenza (su e giù) lasciano il magazzino coerente', async () => {
+      await modificaOrdine('o1', dati({ righe: righe(30) }))
+      await modificaOrdine('o1', dati({ righe: righe(5) }))
+      await modificaOrdine('o1', dati({ righe: righe(12) }))
+      expect(giacenza('fil')).toBe(5000 - 12 * 18)
+      expect(giacenza('ane')).toBe(100 - 12)
+    })
+  })
+
+  describe('ordine già partito', () => {
+    it.each(['spedito', 'consegnato'] as const)('un ordine %s si può correggere ma il magazzino non si ricalcola', async (stato) => {
+      ordine()
+      await cambiaStatoOrdine('o1', 'in preparazione')
+      await cambiaStatoOrdine('o1', 'pronto')
+      await cambiaStatoOrdine('o1', 'spedito')
+      if (stato === 'consegnato') await cambiaStatoOrdine('o1', 'consegnato')
+      await modificaOrdine('o1', dati({ righe: righe(40), note: 'correzione' }))
+      expect(giacenza('fil')).toBe(4820)
+      const o = leggi('ordini/o1')!
+      expect(o.note).toBe('correzione')
+      expect((o.righe as { quantita: number }[])[0].quantita).toBe(40)
+      expect(o.stato).toBe(stato)
+    })
   })
 })

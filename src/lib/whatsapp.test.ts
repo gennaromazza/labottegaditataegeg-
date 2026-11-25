@@ -23,7 +23,7 @@ describe('messaggioOrdine', () => {
     const m = messaggioOrdine(
       ordineDiProva({ dataConsegna: '2026-12-10', pagamenti: [{ importoCent: 500, data: '2026-11-05' }] }),
     )
-    expect(m).toContain('Ciao Maria Rossi! Ecco il riepilogo del tuo ordine – La Bottega di Tata e Gegè')
+    expect(m).toContain('Ciao Maria Rossi! Ecco il riepilogo del tuo ordine – Tratti di Bottega')
     expect(m).toContain('Segnaposto')
     expect(m).toContain('Mario')
     expect(m).toContain('17,50')
@@ -54,7 +54,7 @@ describe('messaggioSpedizione', () => {
     expect(m).toContain('il tuo ordine è stato spedito')
     expect(m).toContain('spedito')
     expect(m).toContain('3 × Segnaposto (Mario)')
-    expect(m).toContain('La Bottega di Tata e Gegè')
+    expect(m).toContain('Tratti di Bottega')
     expect(m).toMatch(/Grazie/)
   })
   it('include corriere e codice di tracciamento se presenti', () => {

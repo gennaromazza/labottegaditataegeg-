@@ -29,7 +29,7 @@ export default function Login() {
   return (
     <main className="pagina login">
       <img src="/logo.png" alt="" height={96} />
-      <h1>La Bottega di Tata e Gegè</h1>
+      <h1>Tratti di Bottega</h1>
       <form onSubmit={invia} className="scheda">
         <label htmlFor="email">Email</label>
         <input id="email" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required />

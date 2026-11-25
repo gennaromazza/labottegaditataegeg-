@@ -177,7 +177,7 @@ export default function OrdineDettaglio() {
     <main className="pagina">
       <div className="solo-stampa intestazione-stampa">
         <img src="/logo.png" alt="" />
-        <strong>La Bottega di Tata e Gegè</strong>
+        <strong>Tratti di Bottega</strong>
       </div>
       <Briciole
         voci={[

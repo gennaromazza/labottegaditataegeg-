@@ -78,7 +78,7 @@ export function Guscio() {
   return (
     <div className="guscio">
       <nav className="menu" aria-label="Menu principale">
-        <img src="/logo.png" alt="La Bottega di Tata e Gegè" className="menu-logo" />
+        <img src="/logo.png" alt="Tratti di Bottega" className="menu-logo" />
         {VOCI.map((v) => (
           <NavLink
             key={v.a}

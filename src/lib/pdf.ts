@@ -26,7 +26,7 @@ export async function generaPdfOrdine(o: Ordine, logoDataUrl?: string): Promise<
     }
   }
   doc.setFont('helvetica', 'bold').setFontSize(18)
-  doc.text('La Bottega di Tata e Gege', margine + 36, y + 6)
+  doc.text('Tratti di Bottega', margine + 36, y + 6)
   doc.setFont('helvetica', 'normal').setFontSize(11)
   // il PDF va al cliente: niente numero d'ordine, che rivelerebbe quanti ordini avete fatto
   doc.text('Riepilogo ordine', margine + 36, y + 14)

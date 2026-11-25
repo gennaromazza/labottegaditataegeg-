@@ -10,8 +10,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       workbox: { navigateFallbackDenylist: [/^\/__\//] },
       manifest: {
-        name: 'La Bottega di Tata e Gegè',
-        short_name: 'La Bottega',
+        name: 'Tratti di Bottega',
+        short_name: 'Tratti di Bottega',
         lang: 'it',
         display: 'standalone',
         start_url: '/',

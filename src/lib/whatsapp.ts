@@ -32,7 +32,7 @@ export function messaggioOrdine(o: Ordine): string {
     return `• ${r.quantita} × ${r.descrizione}${testo} – ${formatEuro(r.quantita * r.prezzoUnitarioCent)}`
   })
   const parti = [
-    `Ciao ${o.clienteNome}! Ecco il riepilogo del tuo ordine – La Bottega di Tata e Gegè`,
+    `Ciao ${o.clienteNome}! Ecco il riepilogo del tuo ordine – Tratti di Bottega`,
     '',
     ...righe,
     ...(haSpedizione(o) ? [spedizioneCent(o) > 0 ? `Spedizione: ${formatEuro(spedizioneCent(o))}` : 'Spedizione gratuita'] : []),
@@ -69,7 +69,7 @@ export function messaggioSpedizione(o: Ordine, indirizzo?: Spedizione): string {
   if (dettagli.length > 0) parti.push('', ...dettagli)
   const residuo = residuoCent(o)
   if (residuo > 0) parti.push('', `Ti ricordo che restano da saldare ${formatEuro(residuo)}. Ci mettiamo d'accordo con calma! 😊`)
-  parti.push('', 'Grazie di cuore per aver scelto La Bottega di Tata e Gegè! 🧡', 'Facci sapere quando lo ricevi: ci fa sempre tanto piacere.')
+  parti.push('', 'Grazie di cuore per aver scelto Tratti di Bottega! 🧡', 'Facci sapere quando lo ricevi: ci fa sempre tanto piacere.')
   return parti.join('\n')
 }
 

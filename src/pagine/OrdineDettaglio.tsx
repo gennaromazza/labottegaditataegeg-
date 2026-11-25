@@ -22,7 +22,8 @@ const ERRORE_SCRITTURA = 'Non sono riuscito a salvare. Controlla la connessione 
 
 async function caricaLogo(): Promise<string | undefined> {
   try {
-    const blob = await (await fetch('/logo.png')).blob()
+    // marchio quadrato: il PDF lo inserisce in un riquadro 30x30
+    const blob = await (await fetch('/icon-512.png')).blob()
     return await new Promise((ok, ko) => {
       const r = new FileReader()
       r.onload = () => ok(r.result as string)

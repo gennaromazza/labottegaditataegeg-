@@ -94,7 +94,7 @@ export default function Ordini() {
     <main className="pagina">
       <div className="solo-stampa intestazione-stampa">
         <img src="/logo.png" alt="" />
-        <strong>La Bottega di Tata e Gegè · Elenco ordini{descrizioneFiltri.length ? ` · ${descrizioneFiltri.join(' · ')}` : ''}</strong>
+        <strong>Tratti di Bottega · Elenco ordini{descrizioneFiltri.length ? ` · ${descrizioneFiltri.join(' · ')}` : ''}</strong>
       </div>
       <div className="riga no-stampa">
         <h1>Ordini</h1>

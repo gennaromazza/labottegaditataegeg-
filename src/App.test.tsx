@@ -18,5 +18,5 @@ it('mostra_il_titolo_della_bottega', () => {
       <App />
     </MemoryRouter>,
   )
-  expect(screen.getByText(/La Bottega/)).toBeInTheDocument()
+  expect(screen.getByText(/Tratti di Bottega/)).toBeInTheDocument()
 })

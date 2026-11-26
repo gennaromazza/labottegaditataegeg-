@@ -1,4 +1,4 @@
-# Gestionale La Bottega di Tata e Gegè
+# Gestionale Tratti di Bottega
 
 Web app (PWA) per ordini, clienti (con dati di spedizione), pagamenti/acconti e incassi.
 React + Vite + TypeScript, Firebase (Hosting, Firestore, Authentication).

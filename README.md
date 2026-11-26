@@ -21,6 +21,9 @@ firebase deploy --only firestore   # pubblica le regole del database
 `.env.local` (non versionato) contiene le variabili `VITE_FIREBASE_*`; i valori si leggono con
 `firebase apps:sdkconfig WEB <appId> --project labottega-tata-gege`.
 
+Se una di queste variabili manca, `npm run build` si ferma con un errore: senza, il sito pubblicato
+resterebbe bianco. Succede per esempio compilando da un worktree, dove `.env.local` va copiato a mano.
+
 ## Chi può entrare
 
 Solo gli account email/password creati da noi, e solo le email elencate in `firestore.rules`
